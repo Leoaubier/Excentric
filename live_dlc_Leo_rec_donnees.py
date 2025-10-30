@@ -3,11 +3,12 @@ import cv2
 from dlclive import DLCLive, Processor
 import time
 import glob
-import open3d as o3d
+import pandas as pd
 import pickle
-from pathlib import Path
 import json
 import numpy as np
+import csv
+from pathlib import Path
 
 # ========================= Utils =========================
 
@@ -88,6 +89,119 @@ def load_zed_intrinsics(json_path, target_w, target_h):
 
     return fx, fy, cx, cy, o3d_depth_scale
 
+def get_resized_shape_for_o3d():
+    d = first_depth_raw
+    if crop is not None:
+        d = d[crop[1]:crop[3], crop[0]:crop[2]]
+    if ratio:
+         d = cv2.resize(d, (int(d.shape[1]*ratio), int(d.shape[0]*ratio)), interpolation=cv2.INTER_NEAREST)
+    return d.shape[1], d.shape[0]  # (W,H)
+
+def normalize_xyz_from_list(xyz_list):
+    """
+    xyz_list: liste de longueur T
+      - chaque élément peut être shape (N,3) ou (3,N)
+    Retourne XYZ shape (3, N, T) en float.
+    """
+    if xyz_list is None or len(xyz_list) == 0:
+        return None
+    first = np.asarray(xyz_list[0])
+    if first.ndim != 2 or (first.shape[1] not in (3,) and first.shape[0] not in (3,)):
+        raise ValueError("xyz_list: chaque item doit être (N,3) ou (3,N).")
+
+    # empile
+    arrs = [np.asarray(a, dtype=float) for a in xyz_list]
+    if arrs[0].shape[1] == 3:  # (N,3) -> transpose en (3,N)
+        arrs = [a.T for a in arrs]  # (3,N)
+    # maintenant chaque frame: (3,N)
+    XYZ = np.stack(arrs, axis=-1)  # (3,N,T)
+    return XYZ
+
+def normalize_px_from_list(markers_px_list):
+    """
+    markers_px_list: liste de longueur T
+      - chaque item peut être (N,3) = [x_px, y_px, likelihood] par marker
+      - ou (3,N) = [x;y;likelihood]
+    Retourne Xpx, Ypx shape (N,T) en float.
+    """
+    if markers_px_list is None or len(markers_px_list) == 0:
+        return None, None
+    first = np.asarray(markers_px_list[0])
+    if first.ndim != 2:
+        raise ValueError("markers_px_list: chaque item doit être 2D (N,3) ou (3,N).")
+
+    arrs = [np.asarray(a, dtype=float) for a in markers_px_list]
+    if arrs[0].shape[1] == 3:  # (N,3)
+        Xpx = np.stack([a[:, 0] for a in arrs], axis=-1)  # (N,T)
+        Ypx = np.stack([a[:, 1] for a in arrs], axis=-1)  # (N,T)
+    elif arrs[0].shape[0] == 3:  # (3,N)
+        Xpx = np.stack([a[0, :] for a in arrs], axis=-1)  # (N,T)
+        Ypx = np.stack([a[1, :] for a in arrs], axis=-1)  # (N,T)
+    else:
+        raise ValueError("markers_px_list: attendu (N,3) ou (3,N).")
+    return Xpx, Ypx
+
+def build_df_xyz(markers_names, frames_np, XYZ):
+    """
+    Construit un DataFrame à colonnes MultiIndex (marker, axis, unit) pour XYZ (m).
+    XYZ: (3,N,T) (X,Y,Z)
+    """
+    T = len(frames_np)
+    cols = [("meta", "frame", "idx")]
+    data_cols = [frames_np.astype(int)]
+    if XYZ is None:
+        # fabrique colonnes vides si pas d'XYZ
+        for name in markers_names:
+            cols.extend([(name, "x", "m"), (name, "y", "m"), (name, "z", "m")])
+            data_cols.extend([np.full(T, np.nan), np.full(T, np.nan), np.full(T, np.nan)])
+    else:
+        _, N, TT = XYZ.shape
+        assert TT == T, "Incohérence frames entre XYZ et frames_np"
+        for m, name in enumerate(markers_names):
+            cols.extend([(name, "x", "m"), (name, "y", "m"), (name, "z", "m")])
+            data_cols.extend([XYZ[0, m, :], XYZ[1, m, :], XYZ[2, m, :]])
+    mi = pd.MultiIndex.from_tuples(cols, names=["marker", "axis", "unit"])
+    df_xyz = pd.DataFrame(np.column_stack(data_cols), columns=mi)
+    return df_xyz
+
+def build_df_px(markers_names, frames_np, Xpx, Ypx):
+    """
+    Construit un DataFrame à colonnes MultiIndex (marker, axis, unit) pour pixels (px).
+    Xpx, Ypx: (N,T)
+    """
+    T = len(frames_np)
+    cols = [("meta", "frame", "idx")]
+    data_cols = [frames_np.astype(int)]
+    if Xpx is None or Ypx is None:
+        for name in markers_names:
+            cols.extend([(name, "x", "px"), (name, "y", "px")])
+            data_cols.extend([np.full(T, np.nan), np.full(T, np.nan)])
+    else:
+        N, TT = Xpx.shape
+        assert TT == T, "Incohérence frames entre Xpx/Ypx et frames_np"
+        for m, name in enumerate(markers_names):
+            cols.extend([(name, "x", "px"), (name, "y", "px")])
+            data_cols.extend([Xpx[m, :], Ypx[m, :]])
+    mi = pd.MultiIndex.from_tuples(cols, names=["marker", "axis", "unit"])
+    df_px = pd.DataFrame(np.column_stack(data_cols), columns=mi)
+    return df_px
+
+def write_multiheader_csv(path: Path, df_multi: pd.DataFrame):
+    """
+    Écrit un CSV avec 3 lignes d’en-tête (marker / axis / unit) puis les données (sans index).
+    """
+    cols = list(df_multi.columns)  # tuples (marker, axis, unit)
+    header_l1 = [c[0] for c in cols]
+    header_l2 = [c[1] for c in cols]
+    header_l3 = [c[2] for c in cols]
+    path = Path(path)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(header_l1)
+        w.writerow(header_l2)
+        w.writerow(header_l3)
+        for row in df_multi.to_numpy():
+            w.writerow(row)
 
 # ========================= Main =========================
 
@@ -108,7 +222,8 @@ if __name__ == '__main__':
     # Sorties
     save_dir = Path(path_image); save_dir.mkdir(parents=True, exist_ok=True)
     out_bio = save_dir / "markers_positions_multi_frames.bio"
-    out_csv = save_dir / "markers_positions_multi_frames.csv"
+    csv_xyz_path = Path(save_dir) / "markers_xyz_m.csv"
+    csv_px_path = Path(save_dir) / "pixels_xy.csv"
 
     markers_px_list = []  # (3, N, T)   => x_px_raw, y_px_raw, likelihood
     depth_mm_list   = []  # (N, T)
@@ -153,14 +268,6 @@ if __name__ == '__main__':
     o3d_depth_scale = None
 
     # Calcule (W,H) de la profondeur/couleur après crop/ratio (utile pour set_intrinsics Open3D)
-    def get_resized_shape_for_o3d():
-        d = first_depth_raw
-        if crop is not None:
-            d = d[crop[1]:crop[3], crop[0]:crop[2]]
-        if ratio:
-            d = cv2.resize(d, (int(d.shape[1]*ratio), int(d.shape[0]*ratio)), interpolation=cv2.INTER_NEAREST)
-        return d.shape[1], d.shape[0]  # (W,H)
-
     W_o3d, H_o3d = get_resized_shape_for_o3d()
     fx, fy, cx, cy, o3d_depth_scale = load_zed_intrinsics(CAMERA_JSON, W_o3d, H_o3d)
 
@@ -227,115 +334,66 @@ if __name__ == '__main__':
         cv2.imshow("depth", depth_to_show)
         cv2.waitKey(1)
 
-        # 7) Dessin 3D Open3D (nuage RGB-D + sphères markers) toutes les K frames
-        # if DRAW_3D_EVERY_K and (len(frame_list) % DRAW_3D_EVERY_K == 0):
-        #     # Construire depth (mm) et color (BGR->RGB) avec le même crop/ratio
-        #     depth_for_o3d = depth_raw_mm
-        #     if crop is not None:
-        #         depth_for_o3d = depth_for_o3d[crop[1]:crop[3], crop[0]:crop[2]]
-        #     if ratio:
-        #         depth_for_o3d = cv2.resize(depth_for_o3d, (int(depth_for_o3d.shape[1]*ratio),
-        #                                                    int(depth_for_o3d.shape[0]*ratio)),
-        #                                    interpolation=cv2.INTER_NEAREST)
-        #     depth_o3d = o3d.geometry.Image(depth_for_o3d.astype(np.uint16))
-        #
-        #     color_bgr = cv2.imread(path_image + f"{sep}color_{idx[i]}.png", cv2.IMREAD_COLOR)
-        #     if color_bgr is None:
-        #         # si pas de color, fabrique une image grise
-        #         color_bgr = np.zeros((H_o3d, W_o3d, 3), np.uint8)
-        #     if crop is not None:
-        #         color_bgr = color_bgr[crop[1]:crop[3], crop[0]:crop[2], :]
-        #     if ratio:
-        #         color_bgr = cv2.resize(color_bgr, (int(color_bgr.shape[1]*ratio),
-        #                                            int(color_bgr.shape[0]*ratio)),
-        #                                interpolation=cv2.INTER_LINEAR)
-        #     color_rgb = cv2.cvtColor(color_bgr, cv2.COLOR_BGR2RGB)
-        #     color_o3d = o3d.geometry.Image(color_rgb.astype(np.uint8))
-        #
-        #     intrinsics = o3d.camera.PinholeCameraIntrinsic()
-        #     intrinsics.set_intrinsics(width=W_o3d, height=H_o3d, fx=fx, fy=fy, cx=cx, cy=cy)
-        #
-        #     rgbd = o3d.geometry.RGBDImage.create_from_color_and_depth(
-        #         color_o3d, depth_o3d,
-        #         depth_scale=o3d_depth_scale,   # ex: 1000 si depth en mm
-        #         depth_trunc=10.0,
-        #         convert_rgb_to_intensity=False
-        #     )
-        #     pcd1 = o3d.geometry.PointCloud.create_from_rgbd_image(rgbd, intrinsics)
-        #
-        #     # Repère vision -> Open3D (y up, z vers l'observateur)
-        #     T_flip = np.array([[1,0,0,0],
-        #                        [0,-1,0,0],
-        #                        [0,0,-1,0],
-        #                        [0,0,0,1]], float)
-        #     pcd1.transform(T_flip)
-        #
-        #     # Sphères aux positions 3D du frame courant (si calculées)
-        #     sphere_list = []
-        #     if xyz_list:
-        #         P = xyz_list[-1]  # (3,N)
-        #         for m in range(P.shape[1]):
-        #             if not np.all(np.isfinite(P[:, m])) or P[2, m] <= 0:
-        #                 continue
-        #             s = o3d.geometry.TriangleMesh.create_sphere(radius=0.01)
-        #             s.translate(P[:, m])
-        #             s.compute_vertex_normals()
-        #             s.paint_uniform_color([0.8, 0.2, 0.2])
-        #             s.transform(T_flip)
-        #             sphere_list.append(s)
-        #
-        #     # Axes
-        #     def axis(vec, col):
-        #         ls = o3d.geometry.LineSet()
-        #         ls.points = o3d.utility.Vector3dVector(np.array([[0,0,0], vec], float))
-        #         ls.lines  = o3d.utility.Vector2iVector(np.array([[0,1]], int))
-        #         ls.colors = o3d.utility.Vector3dVector(np.array([col], float))
-        #         return ls
-        #     axes = [axis([1,0,0],[1,0,0]), axis([0,1,0],[0,1,0]), axis([0,0,1],[0,0,1])]
-        #
-        #     # IMPORTANT : fermer les fenêtres OpenCV pour éviter conflit focus
-        #     try:
-        #         cv2.destroyAllWindows()
-        #     except:
-        #         pass
-        #     o3d.visualization.draw_geometries([pcd1, *axes, *sphere_list])
 
     # ======================= Sauvegarde =======================
     markers_px = np.stack(markers_px_list, axis=-1)  # (3, N, T)
     depth_mm   = np.stack(depth_mm_list,   axis=-1)  # (N, T)
 
     n_markers = markers_px.shape[1]
+    T = markers_px.shape[-1]
     markers_names = [f"M{k + 1}" for k in range(n_markers)]
+    frames_np = np.array(frame_list, dtype=int)
 
     out = {
         "markers_in_pixels": markers_px,   # x_px_raw, y_px_raw, likelihood
         "depth_mm": depth_mm,              # mm au pixel pour chaque marker
         "markers_names": markers_names,
-        "frame_idx": np.array(frame_list, dtype=int),
+        "frame_idx": frames_np,
     }
     if xyz_list:
         out["markers_in_meters"] = np.stack(xyz_list, axis=-1)  # (3, N, T)
 
     with open(out_bio, "wb") as f:
         pickle.dump(out, f)
-    print(f"✅ Enregistré {markers_px.shape[-1]} frames dans {out_bio}")
+    print(f"✅ Enregistré {T} frames dans {out_bio}")
 
-    # Option CSV
+    # 2) Convertis les données en matrices normalisées
+    #    - Si tu as déjà markers_in_meters (3,N,T), réutilise-le
+    #    - Sinon, crée-le à partir de xyz_list :
     try:
-        import csv
-        with open(out_csv, "w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            w.writerow(["frame", "marker_id", "marker_name", "x_px_raw", "y_px_raw", "likelihood", "depth_mm",
-                        "X_m","Y_m","Z_m"])
-            for t, fr in enumerate(frame_list):
-                for m in range(n_markers):
-                    x, y, lk = markers_px[:, m, t]
-                    z = int(depth_mm[m, t])
-                    if "markers_in_meters" in out:
-                        X, Y, Z = out["markers_in_meters"][:, m, t]
-                    else:
-                        X = Y = Z = ""
-                    w.writerow([fr, m, markers_names[m], float(x), float(y), float(lk), z, X, Y, Z])
-        print(f"📄 CSV écrit : {out_csv}")
-    except Exception as e:
-        print(f"CSV non écrit ({e}).")
+        XYZ = out.get("markers_in_meters", None)  # si tu as dict 'out'
+    except Exception:
+        XYZ = None
+
+    if XYZ is None:
+        # Tente depuis xyz_list (liste par frame)
+        try:
+            XYZ = normalize_xyz_from_list(xyz_list)  # -> (3,N,T)
+        except Exception:
+            XYZ = None  # restera NaN dans le CSV XYZ
+
+    # Pixels : depuis structure existante si tu as (3,N,T)
+    try:
+        markers_px = out.get("markers_in_pixels", None)  # (3,N,T) si dispo
+        if markers_px is not None and markers_px.ndim == 3:
+            Xpx, Ypx = markers_px[0, :, :], markers_px[1, :, :]
+        else:
+            raise KeyError
+    except Exception:
+        # Sinon, depuis markers_px_list (liste par frame)
+        try:
+            Xpx, Ypx = normalize_px_from_list(markers_px_list)  # (N,T) chacun
+        except Exception:
+            Xpx, Ypx = None, None  # restera NaN dans le CSV pixels
+
+    # 3) Construis les DataFrames MultiIndex
+    df_xyz = build_df_xyz(markers_names, frames_np, XYZ)  # MultiIndex (marker, axis, unit)
+    df_px = build_df_px(markers_names, frames_np, Xpx, Ypx)
+
+    # 4) Écris les CSV avec 3 lignes d’entête
+    write_multiheader_csv(csv_xyz_path, df_xyz)
+    write_multiheader_csv(csv_px_path, df_px)
+
+    print(f"📄 CSV écrit : {csv_xyz_path}")
+    print(f"📄 CSV écrit : {csv_px_path}")
+
