@@ -66,6 +66,7 @@ OUT_MP4     = f"{sep}home{sep}mickael{sep}Documents{sep}Leo{sep}overlay_test_3.m
 OUT_CSV_M     = prefix + f"{sep}Projet_hand_bike_markerless{sep}Leo{sep}P0{sep}demo_20-10-2025_10_47_44{sep}data{sep}markers_left_arm_xyz_m.csv"
 OUT_CSV_PX     = prefix + f"{sep}Projet_hand_bike_markerless{sep}Leo{sep}P0{sep}demo_20-10-2025_10_47_44{sep}data{sep}markers_left_arm_px_mm.csv"
 
+
 FPS_OUT     = 25
 PCUTOFF     = 0.70
 # seuil visu vert; sinon jaune
