@@ -1,4 +1,4 @@
-#from biosiglive import save, load, OfflineProcessing
+from biosiglive import save, load, OfflineProcessing
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -13,8 +13,9 @@ prefix = "/mnt/shared/" if os.name == "posix" else "Q:\\"
 pref_bis = "/media/mickael/566A33906A336BBD/" if os.name == "posix" else "C:\\"
 sep = os.sep
 
-sensix_path = '/home/mickael/Documents/Leo/Sensix/sensix_try_2_001.lvm'
+#sensix_path = '/home/mickael/Documents/Leo/Sensix/sensix_try_2_001.lvm' #path on lab computer
 
+sensix_path = 'sensix_try_2_001.lvm' #path on mac
 
 def to_dic(all_data_int):
     dic_data = {"time": all_data_int[0, :],
@@ -61,6 +62,7 @@ def smooth_angle(key, dic_data):
 
 
 if __name__ == '__main__':
+
     all_data = []
     with open(sensix_path, 'r') as f:
         csvreader = csv.reader(f, delimiter='\n')
@@ -71,7 +73,7 @@ if __name__ == '__main__':
     dic_data = to_dic(all_data)
     for key in ["left_pedal_angle", "right_pedal_angle", "crank_angle"]:
         dic_data[key] = smooth_angle(key, dic_data)
-
+    print(all_data)
     for i in range(all_data.shape[1]):
         crank_angle = dic_data["crank_angle"][i]
         left_angle = dic_data["left_pedal_angle"][i]
@@ -88,7 +90,7 @@ if __name__ == '__main__':
         dic_data["RFX"][i] = force_vector_r[0]
         dic_data["RFY"][i] = force_vector_r[1]
         dic_data["RFZ"][i] = force_vector_r[2]
-    #save(dic_data, f"/home/mickael/Documents/Leo/Sensix/sensix_try_2_001.bio")
+    save(dic_data, f"sensix_try_2_001.bio")
     print("file :.bio saved")
     print(dic_data)
     fig, ax = plt.subplots(figsize=(10, 4), dpi=120)
