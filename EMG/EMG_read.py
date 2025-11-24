@@ -1,5 +1,4 @@
 import os.path
-
 from biosiglive import load, save, OfflineProcessing
 import numpy as np
 import matplotlib.pyplot as plt
@@ -19,22 +18,21 @@ from pathlib import Path
 if __name__ == '__main__':
     participants = ["P0"]
     processed_data = "/processed_data"
-    data_files = ""
-    emg_names = ['pec.IM EMG1',
-      'bic.IM EMG2',
-       'tri.IM EMG3', 'lat.IM EMG4', 'trap.IM EMG5', 'delt_a.IM EMG6',
-       'delt_m.IM EMG7', 'delt_p.IM EMG8', 'Electric Current.1']
-    markers_names = ['ster', 'xiph', 'C7', 'T5', 'clavsc', 'clavac', 'scapAA', 'scapTS',
-       'scapIA', 'delt', 'arml', 'epic_m', 'epic_l', 'elbow', 'larml',
-       'styl_r', 'styl_u', 'M1', 'M2', 'M3']
-    markers_cluster = ['M1', 'M2', 'M3', 'scapaa', 'scapts', 'scapia', 'slaa', 'slts',
-       'slai']
+    data_files = "/Users/leo/Desktop/Projet/Données/Test_1.c3d"
+    emg_names = ['Delt_ant.IM EMG1', 'Delt_med.IM EMG2',
+      'Delt_post.IM EMG3',
+       'Trap_med.IM EMG4', 'Biceps.IM EMG5', 'Triceps.IM EMG6',
+       'Pec.IM EMG7', 'Brachio.IM EMG8', 'Trigger.1']
+    markers_names = ['Ster', 'Xiph', 'C7', 'T10', 'Clav_SC', 'Clav_Mid', 'Clav_AC', 'Scap_AA', 'Scap_TS',
+       'Scap_IA', 'Delt', 'ArmI', 'EpicI', 'EpicM', 'Elbow', 'LArmI',
+       'StylR', 'StylU', 'Hand_Top', 'Little_Base', 'Index_Base']
+    #markers_cluster = ['M1', 'M2', 'M3', 'scapaa', 'scapts', 'scapia', 'slaa', 'slts', 'slai']
 
     for p, part in enumerate(participants):
         try:
-            files = glob.glob(data_files + f"{part}/Session_1/**.c3d")
+            files = glob.glob(data_files)
         except:
-            files = glob.glob(data_files + f"{part}/session_1/**.c3d")
+            files = glob.glob(data_files)
         mvc_trials = [file for file in files if "sprint" in file]
         mvc_data = [Analogs.from_c3d(filename=file, usecols=emg_names).values for file in mvc_trials]
         mvc_mat = np.append(mvc_data[0], mvc_data[1], axis=1)
@@ -49,10 +47,7 @@ if __name__ == '__main__':
             if "ster" in markers_names_tmp:
                 is_emg = True
                 final_markers_names = markers_names
-            elif "scapaa" in markers_names_tmp:
-                markers_data = Markers.from_c3d(filename=file, usecols=markers_cluster).values
-                is_emg = False
-                final_markers_names = markers_cluster
+
             else:
                 print(f"error while loading markers on file {file}.")
                 continue

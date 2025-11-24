@@ -15,7 +15,7 @@ sep = os.sep
 
 #sensix_path = '/home/mickael/Documents/Leo/Sensix/sensix_try_2_001.lvm' #path on lab computer
 
-sensix_path = 'sensix_try_2_001.lvm' #path on mac
+sensix_path = '/Users/leo/Desktop/Projet/Données/test_emg_001.lvm' #path on mac
 
 def to_dic(all_data_int):
     dic_data = {"time": all_data_int[0, :],
