@@ -35,6 +35,9 @@ print("markers rate", trigger_frame)
 
 emg = emg_raw.isel(time=slice(trigger_index, None))
 
+emg.plot(x='time', col='channel', col_wrap=3)
+
+
 emg_processed = (
     emg.meca.band_pass(order=2, cutoff=[10, 425])
     .meca.center()

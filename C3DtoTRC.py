@@ -2,10 +2,10 @@ import numpy as np
 
 try:
     from pyomeca import Markers
-except:
-    pass
+except ImportError:
+    raise ImportError("Installe pyomeca : pip install pyomeca")
+
 import csv
-import glob
 
 
 class WriteTrc:
@@ -53,6 +53,7 @@ class WriteTrc:
         coord_row = ["", ""]
         empty_row = []
         idx = 0
+        # Ligne des noms de marqueurs (un nom pour X,Y,Z)
         for i in range(len(self.marker_names) * 3):
             if i % 3 == 0:
                 markers_row.append(self.marker_names[idx])
@@ -61,16 +62,11 @@ class WriteTrc:
                 markers_row.append(None)
         headers.append(markers_row)
 
+        # Ligne des X1 Y1 Z1 X2 Y2 Z2 ...
         for i in range(len(self.marker_names)):
-            name_coord = 0
-            while name_coord < 3:
-                if name_coord == 0:
-                    coord_row.append(f"X{i+1}")
-                elif name_coord == 1:
-                    coord_row.append(f"Y{i+1}")
-                elif name_coord == 2:
-                    coord_row.append(f"Z{i+1}")
-                name_coord += 1
+            coord_row.append(f"X{i+1}")
+            coord_row.append(f"Y{i+1}")
+            coord_row.append(f"Z{i+1}")
 
         headers.append(coord_row)
         headers.append(empty_row)
@@ -80,26 +76,37 @@ class WriteTrc:
         if self.input_file_path:
             self._read_c3d()
         headers = self._prepare_trc()
-        duration = self.n_frames / self.data_rate
-        time = np.around(np.linspace(0, duration, self.n_frames), decimals=3) if self.time is None else self.time
+
+        # temps : on garde celui du c3d si présent
+        if self.time is None:
+            duration = self.n_frames / self.data_rate
+            time = np.around(
+                np.linspace(0, duration, self.n_frames), decimals=3
+            )
+        else:
+            time = self.time
+
         for frame in range(self.markers.shape[2]):
-            row = [frame + 1, time[frame]]
+            row = [frame + 1, float(time[frame])]
             for i in range(self.markers.shape[1]):
                 for j in range(3):
                     row.append(self.markers[j, i, frame])
             headers.append(row)
+
         with open(self.output_file_path, "w", newline="") as file:
             writer = csv.writer(file, delimiter="\t")
             writer.writerows(headers)
 
     def _read_c3d(self):
+        # On lit seulement les canaux demandés (markers_names)
         data = Markers.from_c3d(self.input_file_path, usecols=self.channels)
+        # markers : [3, n_markers, n_frames]
         self.markers = data.values[:3, :, :]
         self.n_frames = len(data.time.values)
         self.marker_names = data.channel.values.tolist()
         self.data_rate = data.attrs["rate"]
-        self.units = data.attrs["units"]
-        self.start_frame = data.attrs["first_frame"] + 1
+        self.units = data.attrs["units"]  # souvent "mm"
+        self.start_frame = int(data.attrs["first_frame"]) + 1
         self.cam_rate = self.data_rate if self.cam_rate is None else self.cam_rate
         self.time = data.time.values
 
@@ -128,130 +135,25 @@ class WriteTrcFromC3d(WriteTrc):
         self.write_trc()
 
 
-class WriteTrcFromMarkersData(WriteTrc):
-    def __init__(
-        self,
-        output_file_path,
-        markers=None,
-        marker_names=None,
-        data_rate=None,
-        cam_rate=None,
-        n_frames=None,
-        start_frame=1,
-        units="m",
-    ):
-        super(WriteTrcFromMarkersData, self).__init__()
-        self.output_file_path = output_file_path
-        self.markers = markers
-        self.marker_names = marker_names
-        self.data_rate = data_rate
-        self.cam_rate = self.data_rate if cam_rate is None else cam_rate
-        self.n_frames = n_frames
-        self.start_frame = start_frame
-        self.units = units
-        self.time = None
-
-    def write(self):
-        self.write_trc()
-
-
 if __name__ == "__main__":
-    import pathlib
 
-    # outfile_path = "data.trc"
+    # --- ICI TU ADAPTES LES CHEMINS ---
+    c3d_path = "/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/pos_statique.c3d"              # ton C3D "bon"
+    trc_out = "/Users/leo/Desktop/Projet/Collecte_25_11/Sidonie/pos_statique.trc"      # TRC de sortie
 
-    infile_path = "/Users/leo/Desktop/Projet/Données/Test_1.c3d"
-    from biosiglive import load
+    markers_names = [
+        "Ster", "Xiph", "C7", "T10",
+        "Clav_SC", "Clav_Mid", "Clav_AC",
+        "Scap_AA", "Scap_TS", "Scap_IA",
+        "Delt", "ArmI", "EpicI", "EpicM",
+        "Elbow", "LArmI", "StylR", "StylU",
+        "Hand_Top", "Little_Base", "Index_Base",
+    ]
 
-    # markers_file = "data_files/P3_session2/gear_20_15-08-2023_09_35_38/P3_gear_20_c3d.bio"
-    # data = load(markers_file)
-    # markers_name = ["STER",
-    #                  "XIPH",
-    #                  "C7",
-    #                  "T5",
-    #                  'RIBS_r',
-    #                  "CLAV_SC",
-    #                  "CLAV_AC",
-    #                  "SCAP_TS",
-    #                  "SCAP_IA",
-    #                  "SCAP_AA",
-    #                  "DELT",
-    #                  "ARMl",
-    #                  "EPICM",
-    #                  "EPICl",
-    #                  "ELB",
-    #                  "larm_l",
-    #                  "STYLr",
-    #                  "STYLu"
-    #                 ]
-    #
-    # # markers_name = markers_data["markers"].channel.values.tolist()[:-5]
-    # markers_data = data["markers"].values[:3, :-5, :200].round(5) * 0.001
-    # outfile_path = "data_files/P4_session2/gear_20_15-08-2023_09_35_38/P3_gear_20_c3d.trc"
-    # write = WriteTrcFromMarkersData(outfile_path,
-    #                         markers_data,
-    #                         markers_name,
-    #                         120,
-    #                         120,
-    #                         markers_data.shape[2],
-    #                         units="m"
-    #                         )
-    # write.time = data["markers"].time.values.round(4)
-    # write.write()
-    participant = "P4_session2"
-    trial = "standing_anato"
-    file_dir = rf"/Users/leo/Desktop/Projet/Données"
-    vicon_data = load(rf"/Users/leo/Desktop/Projet/Données/Test_1.c3d")
-    import glob
-
-    # markers_depth = load(f"{file_dir}\markers_kalman.bio", number_of_line=len(glob.glob(file_dir + "\color*")))
-    # # end = markers_depth.shape[2]
-    # markers_depth = markers_depth["markers_in_meters"]
-    # markers_depth_names = [
-    #                  "T5",
-    #                  "C7",
-    #                  'RIBS_r',
-    #                  "CLAV_AC",
-    #                  "SCAP_TS",
-    #                  "SCAP_IA",
-    #                  "SCAP_AA",
-    #                  "DELT",
-    #                  "ARMl",
-    #                  "EPICl",
-    #                  "larm_l",
-    #                  "STYLr",
-    #                  "STYLu"
-    #                 ]
-    markers_vicon_names = ['Ster', 'Xiph', 'C7', 'T10', 'Clav_SC', 'Clav_Mid', 'Clav_AC', 'Scap_AA', 'Scap_TS',
-       'Scap_IA', 'Delt', 'ArmI', 'EpicI', 'EpicM', 'Elbow', 'LArmI',
-       'StylR', 'StylU', 'Hand_Top', 'Little_Base', 'Index_Base']
-    # # new_markers_depth = np.zeros((3, markers_depth.shape[1], idx[-1]-idx[0]))
-    # count = 0
-    # # for i in range(idx[-1]-idx[0]):
-    # #     if i + start_color_idx in idx:
-    # #         new_markers_depth[:, :, i] = np.dot(np.array(optimal_rotation),
-    # #                                             np.array(markers_depth[:, :, count])
-    # #                                             ) + np.array(optimal_translation)
-    # #         count += 1
-    # #     else:
-    # #         new_markers_depth[:, :, i] = np.nan
-    markers_vicon = vicon_data["markers"].values[:3, : len(markers_vicon_names), :] * 0.001
-    # WriteTrcFromMarkersData(output_file_path =f"{file_dir}\{participant}_{trial}_from_depth.trc",
-    #                         markers=np.round(markers_depth, 5),
-    #                         marker_names=markers_depth_names,
-    #                         data_rate=60,
-    #                         cam_rate=60,
-    #                         n_frames=markers_depth.shape[2],
-    #                         start_frame=1,
-    #                         units="m").write()
-
-    WriteTrcFromMarkersData(
-        output_file_path=f"/Users/leo/Desktop/Projet/Données/{participant}_{trial}_from_vicon.trc",
-        markers=np.round(markers_vicon, 5),
-        marker_names=markers_vicon_names,
-        data_rate=120,
-        cam_rate=120,
-        n_frames=markers_vicon.shape[2],
-        start_frame=1,
-        units="m",
-    ).write()
+    writer = WriteTrcFromC3d(
+        output_file_path=trc_out,
+        c3d_file_path=c3d_path,
+        c3d_channels=markers_names,  # on garde seulement ceux-là
+    )
+    writer.write()
+    print("✔ TRC complet généré :", trc_out)
