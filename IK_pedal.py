@@ -4,7 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ezc3d
 import biorbd
+import csv
 from scipy.signal import find_peaks
+from pyomeca import Analogs
+
 try:
     import bioviz
 
@@ -14,7 +17,6 @@ except ModuleNotFoundError:
 
 
 # === Choix des frames à analyser ===
-START_FRAME = 3500       # Première frame incluse
 END_FRAME   = 8000    # Dernière frame (None = dernière frame du fichier)
 
 
@@ -26,6 +28,57 @@ MODEL_MARKERS = [
     "Pedal5",
     "Pedal6",
 ]
+
+def afficher_entetes_ezc3d(fichier):
+    c3d = ezc3d.c3d(str(fichier))
+
+    # Paramètres ANALOG
+    params = c3d["parameters"]
+
+    # Vérification de la présence de LABELS
+    if "ANALOG" in params and "LABELS" in params["ANALOG"]:
+        labels = params["ANALOG"]["LABELS"]["value"]
+        print("Liste des canaux analogiques :")
+        for i, label in enumerate(labels):
+            print(f"  {i + 1}. {label}")
+        return labels
+
+    else:
+        print("⚠️  Pas de LABELS trouvés dans la section ANALOG.")
+        print("Clés disponibles :", params.get("ANALOG", {}).keys())
+
+
+def find_trigger(file):
+    # Charger le canal analogique
+    analog = Analogs.from_c3d(filename=file, usecols=['Electric Resistance.1']).values[0]
+
+    # Charger le c3d
+    c3d = ezc3d.c3d(file)
+
+    # Lire les fréquences
+    analog_rate = c3d["parameters"]["ANALOG"]["RATE"]["value"][0]  # ex: 2000
+    point_rate = c3d["parameters"]["POINT"]["RATE"]["value"][0]  # ex: 100
+
+    # ratio entre analog et markers
+    ratio = int(analog_rate / point_rate)  # ex: 20
+
+    # Trouver les indices (en samples analogiques) où le signal dépasse 2V
+    trigger_samples = np.where(analog > 2.0)[0]
+
+    # Si rien ne dépasse → on renvoie 0
+    if trigger_samples.size == 0:
+        return 0
+
+    # Premier sample dépassant 2V
+    first_trigger_sample = trigger_samples[0]
+
+    # Convertir en frame markers
+    trigger_frame = first_trigger_sample // ratio
+
+    print("Trigger (sample analog) =", first_trigger_sample)
+    print("Trigger (frame marker)  =", trigger_frame)
+
+    return trigger_frame
 
 def build_marker_mapping(c3d_labels):
     mapping = {}
@@ -50,14 +103,66 @@ def numpy_markers_to_nodes(markers_frame):
     return nodes
 
 
+def to_dic(all_data_int):
+    dic_data = {"time": all_data_int[0, :],
+                "LFX": all_data_int[1, :],
+                "LFY": all_data_int[2, :],
+                "LFZ": all_data_int[3, :],
+                "LMX": all_data_int[4, :],
+                "LMY": all_data_int[5, :],
+                "LMZ": all_data_int[6, :],
+                "LAX": all_data_int[7, :],
+                "LAY": all_data_int[8, :],
+                "left_pedal_angle": all_data_int[17, :],
+                "crank_angle": all_data_int[19,:]
+                }
+    return dic_data
+
+def transform_forces_to_global(model, q_recons, F_local, M_local, ratio=2): #ratio entre la frequence d'echantillonage
+    # des pédales 200Hz et les frames 100Hz
+    n_frames = q_recons.shape[1]
+
+    F_global = np.zeros((3, n_frames))
+    M_global = np.zeros((3, n_frames))
+
+    for i in range(n_frames):
+
+        # Prendre la bonne valeur de force : 2000 Hz (trigger) → 100 Hz (frames)
+        Fp = F_local[:, i * ratio]
+        Mp = M_local[:, i * ratio]
+
+        # Coordonnées généralisées
+        q_i = biorbd.GeneralizedCoordinates(q_recons[:, i])
+
+        # Roto-transformation globale du segment
+        T = model.globalJCS(q_i, "Pedal_left").to_array()
+        R = T[:3, :3]
+        p = T[:3, 3]
+
+        # Transformation de la force
+        Fg = R.T @ Fp
+        # Transformation du moment
+        Mg = R.T @ Mp + np.cross(p, Fg)
+
+        F_global[:, i] = Fg
+        M_global[:, i] = Mg
+
+    return F_global, M_global
+
+
+
 def main(show=True):
 
     model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/model_pedal.bioMod")
     c3d_path = Path("/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/concentric_40W.c3d")
+    sensix_path = Path("/Users/leo/Desktop/Projet/Collecte_25_11/pedales/Results-concentric_40w_001.lvm")
+
+
+    #afficher_entetes_ezc3d(str(c3d_path))
 
     model = biorbd.Model(str(model_path))
     nq = model.nbQ()
-    print(nq)
+    print("DoF du modèle :", nq)
 
     c3d = ezc3d.c3d(str(c3d_path))
     raw_markers = c3d["data"]["points"][:3, :, :]
@@ -71,10 +176,10 @@ def main(show=True):
     markers = extract_relevant_markers(raw_markers, mapping)
 
     # === APPLY FRAME SELECTION HERE ===
-    markers = markers[:, :, START_FRAME:END_FRAME]
+    markers = markers[:, :, find_trigger(str(c3d_path)):END_FRAME]
     n_frames = markers.shape[2]
-
     kalman = biorbd.KalmanReconsMarkers(model)
+
     q_recons = np.zeros((nq, n_frames))
 
     for i in range(n_frames):
@@ -87,7 +192,6 @@ def main(show=True):
         kalman.reconstructFrame(model, marker_nodes, q, qdot, qddot)
         q_recons[:, i] = q.to_array()
 
-
         if i % 200 == 0:
             print(f"Frame {i}/{n_frames}")
 
@@ -95,48 +199,38 @@ def main(show=True):
 
     print("IK terminé.")
 
-
-    # === Extraction coude ===
-    # ===========================
-    # CHOIX DES DOF À ANALYSER
-    # ===========================
-
-    JOINTS = {
-        "crank_rot": 0,
-        "pedal_rot": 1,
-    }
-
-    # ===========================
-    # 1) plot sequence
-    # ===========================
-
-    plt.plot(np.rad2deg(q_recons[3, :]), label="crank_rot")
-    plt.plot(np.rad2deg(q_recons[4, :]), label="pedal_rot")
-
-    # ===========================
-    # 2) Enregistrement des données
-    # ===========================
     np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/inverse_kinematic_pedal_40W.npy", q_recons)
     print("données IK enregistrées :)")
 
+    all_data = []
+    with open(sensix_path, 'r') as f:
+        csvreader = csv.reader(f, delimiter='\n')
+        for row in csvreader:
+            all_data.append(np.array(row[0].split("\t")))
+    all_data = np.array(all_data, dtype=float).T
 
+    global_force, global_moment = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:])
+    global_constraint = [global_force, global_moment]
+    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_global_40W.npy", global_constraint)
+    print("Forces et Moments enregistrés")
+    print("markers frames:", markers.shape[2])
+    print("forces frames:", all_data.shape[1])  # total forces
+    print("IK frames    :", q_recons.shape[1])
 
-
-    q_recons_r = q_recons.copy()
-
-    # Corrige toutes les articulations (si besoin)
-    q_recons_r[3, :] = np.unwrap(q_recons_r[3, :])
-    q_recons_r[4, :] = np.unwrap(q_recons_r[4, :])
-
-    plt.plot(np.rad2deg(q_recons_r[3, :]), label="crank_rot")
-    plt.plot(np.rad2deg(q_recons_r[4, :]), label="pedal_rot")
+    plt.plot(global_force[0,:], label='Fx')
+    plt.plot(global_force[1,:], label='Fy')
+    plt.plot(global_force[2,:], label='Fz')
     plt.legend()
     plt.show()
 
-    # Animate the results if biorbd viz is installed
+    plt.plot(global_moment[0, :], label='Mx')
+    plt.plot(global_moment[1, :], label='My')
+    plt.plot(global_moment[2, :], label='Mz')
+    plt.legend()
+    plt.show()
     if show and biorbd_viz_found:
         b = bioviz.Viz(loaded_model=model)
-        b.load_movement(q_recons_r)
+        b.load_movement(q_recons)
         b.exec()
 
 if __name__ == "__main__":

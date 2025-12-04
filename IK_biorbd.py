@@ -1,5 +1,6 @@
 from pathlib import Path
 from math import pi
+from pyomeca import Analogs
 import numpy as np
 import matplotlib.pyplot as plt
 import ezc3d
@@ -14,7 +15,6 @@ except ModuleNotFoundError:
 
 
 # === Choix des frames à analyser ===
-START_FRAME = 3500       # Première frame incluse
 END_FRAME   = 8000    # Dernière frame (None = dernière frame du fichier)
 
 
@@ -42,6 +42,38 @@ MODEL_MARKERS = [
     "Little_Base",
     "Hand_Top",
 ]
+
+def find_trigger(file):
+    # Charger le canal analogique
+    analog = Analogs.from_c3d(filename=file, usecols=['Electric Resistance.1']).values[0]
+
+    # Charger le c3d
+    c3d = ezc3d.c3d(file)
+
+    # Lire les fréquences
+    analog_rate = c3d["parameters"]["ANALOG"]["RATE"]["value"][0]  # ex: 2000
+    point_rate = c3d["parameters"]["POINT"]["RATE"]["value"][0]  # ex: 100
+
+    # ratio entre analog et markers
+    ratio = int(analog_rate / point_rate)  # ex: 20
+
+    # Trouver les indices (en samples analogiques) où le signal dépasse 2V
+    trigger_samples = np.where(analog > 2.0)[0]
+
+    # Si rien ne dépasse → on renvoie 0
+    if trigger_samples.size == 0:
+        return 0
+
+    # Premier sample dépassant 2V
+    first_trigger_sample = trigger_samples[0]
+
+    # Convertir en frame markers
+    trigger_frame = first_trigger_sample // ratio
+
+    print("Trigger (sample analog) =", first_trigger_sample)
+    print("Trigger (frame marker)  =", trigger_frame)
+
+    return trigger_frame
 
 def build_marker_mapping(c3d_labels):
     mapping = {}
@@ -86,11 +118,13 @@ def main(show=True):
     markers = extract_relevant_markers(raw_markers, mapping)
 
     # === APPLY FRAME SELECTION HERE ===
-    markers = markers[:, :, START_FRAME:END_FRAME]
+    markers = markers[:, :, find_trigger(str(c3d_path)):END_FRAME]
     n_frames = markers.shape[2]
 
     kalman = biorbd.KalmanReconsMarkers(model)
     q_recons = np.zeros((nq, n_frames))
+    marker_error = np.zeros((nq, n_frames))
+
 
     for i in range(n_frames):
         marker_nodes = numpy_markers_to_nodes(markers[:, :, i])
@@ -100,8 +134,13 @@ def main(show=True):
         qddot = biorbd.GeneralizedAcceleration(model)
 
         kalman.reconstructFrame(model, marker_nodes, q, qdot, qddot)
-        q_recons[:, i] = q.to_array()
 
+        #markers_model = model.markers(q)  # liste de nodes
+        #markers_model = np.array([m.to_array() for m in markers_model]).T  # shape (3, nMarkers)
+        #errors = np.linalg.norm(markers_model - markers[:, :, i], axis=0)  # en mètres
+        #marker_error[:, i] = errors
+
+        q_recons[:, i] = q.to_array()
 
         if i % 200 == 0:
             print(f"Frame {i}/{n_frames}")
@@ -109,7 +148,12 @@ def main(show=True):
 
 
     print("IK terminé.")
+    marker_error_mm = marker_error * 1000
 
+    plt.plot(np.mean(marker_error_mm, axis=1))
+    plt.xlabel("Frame")
+    plt.ylabel("Erreur marker moyenne (mm)")
+    plt.show()
 
     # === Extraction coude ===
     # ===========================
@@ -125,13 +169,13 @@ def main(show=True):
     # ===========================
     # 1) Détection des pics via le coude (référence du cycle)
     # ===========================
-
+    coude = np.unwrap(q_recons[14, :])
 
 
     plt.plot(np.rad2deg(q_recons[11, :]), label="adbuction epaule kalmann")  #--> Abduction épaule
     plt.plot(np.rad2deg(q_recons[12, :]), label="Flexion epaule kalmann")  #--> Flexion épaule
     plt.plot(np.rad2deg(q_recons[13, :]), label="Rot axiale epaule kalmann")  #-->
-    plt.plot(np.rad2deg(q_recons[14, :]), label="Coude kalmann")  #--> Flexion coude
+    plt.plot(np.rad2deg(coude), label="Coude kalmann")  #--> Flexion coude
 
     # ===========================
     # 2) Enregistrement des données
@@ -143,7 +187,7 @@ def main(show=True):
     # 3) Matrice de rot
     # ===========================
     def wrap_to_180(angle_deg):
-        return (angle_deg + 180) % 360 - 180
+        return (np.unwrap(angle_deg) + 180) % 360 - 180
 
     n_frames = q_recons.shape[1]
 
@@ -252,6 +296,8 @@ def main(show=True):
 
     plt.tight_layout()
     plt.show()
+
+
 
     # Animate the results if biorbd viz is installed
     if show and biorbd_viz_found:
