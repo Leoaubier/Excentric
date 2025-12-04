@@ -123,8 +123,14 @@ def main(show=True):
 
     kalman = biorbd.KalmanReconsMarkers(model)
     q_recons = np.zeros((nq, n_frames))
-    marker_error = np.zeros((nq, n_frames))
 
+    marker_nodes = numpy_markers_to_nodes(markers[:, :, 4000])
+
+    q = biorbd.GeneralizedCoordinates(model)
+    qdot = biorbd.GeneralizedVelocity(model)
+    qddot = biorbd.GeneralizedAcceleration(model)
+
+    kalman.reconstructFrame(model, marker_nodes, q, qdot, qddot)
 
     for i in range(n_frames):
         marker_nodes = numpy_markers_to_nodes(markers[:, :, i])
@@ -135,11 +141,6 @@ def main(show=True):
 
         kalman.reconstructFrame(model, marker_nodes, q, qdot, qddot)
 
-        #markers_model = model.markers(q)  # liste de nodes
-        #markers_model = np.array([m.to_array() for m in markers_model]).T  # shape (3, nMarkers)
-        #errors = np.linalg.norm(markers_model - markers[:, :, i], axis=0)  # en mètres
-        #marker_error[:, i] = errors
-
         q_recons[:, i] = q.to_array()
 
         if i % 200 == 0:
@@ -148,12 +149,7 @@ def main(show=True):
 
 
     print("IK terminé.")
-    marker_error_mm = marker_error * 1000
 
-    plt.plot(np.mean(marker_error_mm, axis=1))
-    plt.xlabel("Frame")
-    plt.ylabel("Erreur marker moyenne (mm)")
-    plt.show()
 
     # === Extraction coude ===
     # ===========================
