@@ -210,7 +210,7 @@ def main(show=True):
     all_data = np.array(all_data, dtype=float).T
 
     global_force, global_moment = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:])
-    global_constraint = [global_force, global_moment]
+    global_constraint = [global_moment, global_force]
     np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_global_40W.npy", global_constraint)
     print("Forces et Moments enregistrés")
     print("markers frames:", markers.shape[2])

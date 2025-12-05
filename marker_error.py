@@ -1,6 +1,7 @@
 import numpy as np
 import biorbd
 import matplotlib.pyplot as plt
+from matplotlib.widgets import CheckButtons
 import ezc3d
 from pyomeca import Analogs
 
@@ -98,11 +99,14 @@ marker_error_mm = marker_error * 1000
 
 plt.figure(figsize=(16, 8))
 
+
 for k, (i_model, i_c3d) in enumerate(mapping):
     name = model_marker_names[i_model]
     plt.plot(marker_error_mm[:, k], label=name)
 
+
 #plt.plot(np.mean(marker_error_mm, axis=1), 'k--', linewidth=3, label="Erreur moyenne")
+
 
 plt.title("Erreur de reconstruction IK par marker")
 plt.xlabel("Frame")

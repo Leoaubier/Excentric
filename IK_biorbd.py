@@ -123,6 +123,8 @@ def main(show=True):
 
     kalman = biorbd.KalmanReconsMarkers(model)
     q_recons = np.zeros((nq, n_frames))
+    qdot_recons = np.zeros((nq, n_frames))
+    qddot_recons = np.zeros((nq, n_frames))
 
     marker_nodes = numpy_markers_to_nodes(markers[:, :, 4000])
 
@@ -142,7 +144,8 @@ def main(show=True):
         kalman.reconstructFrame(model, marker_nodes, q, qdot, qddot)
 
         q_recons[:, i] = q.to_array()
-
+        qdot_recons[:, i] = qdot.to_array()
+        qddot_recons[:, i] = qddot.to_array()
         if i % 200 == 0:
             print(f"Frame {i}/{n_frames}")
 
@@ -176,7 +179,9 @@ def main(show=True):
     # ===========================
     # 2) Enregistrement des données
     # ===========================
-    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/inverse_kinematic_sidonie_40W.npy", q_recons)
+    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy", q_recons)
+    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_sidonie_40W.npy", qdot_recons)
+    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/qddot_inverse_kinematic_sidonie_40W.npy", qddot_recons)
     print("données IK enregistrées :)")
 
     # ===========================
