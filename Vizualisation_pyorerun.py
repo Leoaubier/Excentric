@@ -1,5 +1,3 @@
-from cProfile import label
-
 from pyorerun import BiorbdModel, PhaseRerun
 import numpy as np
 import biorbd
@@ -21,19 +19,20 @@ t_span = np.linspace(0, duration, n_frames)
 
 model = BiorbdModel(model_path)
 model_pedal = BiorbdModel(model_pedal_path)
-mod_ped = biorbd.Model(model_pedal_path)
+mod_ped = biorbd.Biorbd(model_pedal_path)
 
-force = np.load(force_path)[0,:,0:n_frames]
+force = np.load(force_path)[1,:,0:n_frames]
 origin = np.zeros((3, force.shape[1]))
 reper = np.zeros((3, 3, n_frames))
 
 for i in range(n_frames):
-    Qi = biorbd.GeneralizedCoordinates(q_pedal[:, i])
+    #point ap
 
-    jcs = mod_ped.globalJCS(Qi, "Pedal_left")
-    origin[:, i] = jcs.trans().to_array() #Transpose ?
+    jcs_pedal = mod_ped.segments["Pedal_left"].frame(q_pedal[:, i])
 
-    reper[:,:,i] = 10*jcs.to_array()[0:3,0:3].T #vérifier ??
+    origin[:, i] = jcs_pedal[:3,3].T   #Transpose ?
+
+    reper[:,:,i] = 10*jcs_pedal[0:3,0:3].T
 data = np.load(force_path)               # shape (2, 3, n_frames)
 
 

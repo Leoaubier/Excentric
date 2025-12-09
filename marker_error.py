@@ -8,7 +8,7 @@ from pyomeca import Analogs
 
 model_path = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
 c3d_path   = "/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/concentric_40W.c3d"
-q_path     = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/inverse_kinematic_sidonie_40W.npy"
+q_path     = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy"
 
 def find_trigger(file):
     # Charger le canal analogique
@@ -115,3 +115,42 @@ plt.legend(fontsize=7)
 plt.grid(True)
 plt.tight_layout()
 plt.show()
+
+# ---- GRAPHIQUE EN BARRES : erreur moyenne + écart-type ----
+
+mean_error = np.mean(marker_error_mm, axis=0)
+std_error  = np.std(marker_error_mm, axis=0)
+min_error  = np.min(marker_error_mm, axis=0)      # min (optionnel)
+max_error  = np.max(marker_error_mm, axis=0)      # max (optionnel)
+
+marker_labels = [model_marker_names[i_model] for (i_model, i_c3d) in mapping]
+
+# colormap correcte (sans warning)
+cmap = plt.colormaps.get_cmap("RdYlGn_r")
+
+# normalisation pour la couleur
+norm = plt.Normalize(mean_error.min(), mean_error.max())
+colors = cmap(norm(mean_error))
+
+# Création explicite figure + axe
+fig, ax = plt.subplots(figsize=(14, 6))
+
+bars = ax.bar(marker_labels, mean_error, yerr=std_error, capsize=5, color=colors)
+
+ax.set_xticklabels(marker_labels, rotation=45, ha='right')
+ax.set_ylabel("Erreur (mm)")
+ax.set_title("Erreur moyenne IK par marker (rouge = grande erreur)")
+ax.grid(axis='y', linestyle='--', alpha=0.5)
+
+# Créer un mappable lié à cet axe
+sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+sm.set_array([])
+
+# Ajouter la colorbar SANS erreur
+cbar = fig.colorbar(sm, ax=ax)
+cbar.set_label("Erreur (mm)")
+
+plt.tight_layout()
+plt.show()
+
+

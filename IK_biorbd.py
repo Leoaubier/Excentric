@@ -15,7 +15,7 @@ except ModuleNotFoundError:
 
 
 # === Choix des frames à analyser ===
-END_FRAME   = 8000    # Dernière frame (None = dernière frame du fichier)
+END_FRAME   = None    # Dernière frame (None = dernière frame du fichier)
 
 
 # === 1. Markers du modèle, DANS L'ORDRE DU .bioMod ===
@@ -118,7 +118,7 @@ def main(show=True):
     markers = extract_relevant_markers(raw_markers, mapping)
 
     # === APPLY FRAME SELECTION HERE ===
-    markers = markers[:, :, find_trigger(str(c3d_path)):END_FRAME]
+    markers = markers[:, :, find_trigger(str(c3d_path)):END_FRAME] #find_trigger(str(c3d_path))
     n_frames = markers.shape[2]
 
     kalman = biorbd.KalmanReconsMarkers(model)
@@ -126,7 +126,7 @@ def main(show=True):
     qdot_recons = np.zeros((nq, n_frames))
     qddot_recons = np.zeros((nq, n_frames))
 
-    marker_nodes = numpy_markers_to_nodes(markers[:, :, 4000])
+    marker_nodes = numpy_markers_to_nodes(markers[:, :, 4000]) #initialisation à un
 
     q = biorbd.GeneralizedCoordinates(model)
     qdot = biorbd.GeneralizedVelocity(model)
@@ -302,7 +302,7 @@ def main(show=True):
 
     # Animate the results if biorbd viz is installed
     if show and biorbd_viz_found:
-        b = bioviz.Viz(loaded_model=model)
+        b = bioviz.Viz(loaded_model=model, show_local_ref_frame=True)
         b.load_movement(q_recons)
         b.exec()
 

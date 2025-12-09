@@ -17,7 +17,7 @@ except ModuleNotFoundError:
 
 
 # === Choix des frames à analyser ===
-END_FRAME   = 8000    # Dernière frame (None = dernière frame du fichier)
+END_FRAME   = None    # Dernière frame (None = dernière frame du fichier)
 
 
 # === 1. Markers du modèle, DANS L'ORDRE DU .bioMod ===
@@ -118,31 +118,88 @@ def to_dic(all_data_int):
                 }
     return dic_data
 
-def transform_forces_to_global(model, q_recons, F_local, M_local, ratio=2): #ratio entre la frequence d'echantillonage
-    # des pédales 200Hz et les frames 100Hz
+def transform_forces_to_global(model, q_recons, F_local, M_local,
+                               fs_high=250, fs_low=100, mode="nearest"):
+    """
+    Transforme les forces/moments en coordonnées globales, en recalent les signaux 250 Hz sur 100 Hz.
+
+    Parameters
+    ----------
+    model : biorbd.Model
+    q_recons : ndarray (DoF x n_frames)
+    F_local : ndarray (3 x n_samples_high)
+    M_local : ndarray (3 x n_samples_high)
+    fs_high : fréquence du signal pédales (ex: 250 Hz)
+    fs_low : fréquence des frames cinématiques (ex: 100 Hz)
+    mode : "interp" ou "nearest"
+
+    Returns
+    -------
+    F_global, M_global : ndarray (3 x n_frames)
+    """
+
     n_frames = q_recons.shape[1]
 
+    # ----------------------------
+    # 1) Création des timelines
+    # ----------------------------
+    t_low = np.arange(n_frames) / fs_low                  # temps 100 Hz
+    n_high = F_local.shape[1]
+    t_high = np.arange(n_high) / fs_high                 # temps 250 Hz
+
+    # ----------------------------
+    # 2) Recalage 250 Hz → 100 Hz
+    # ----------------------------
+    if mode == "interp":
+        # interpolation linéaire
+        Fp_resampled = np.vstack([
+            np.interp(t_low, t_high, F_local[i, :])
+            for i in range(3)
+        ])
+        Mp_resampled = np.vstack([
+            np.interp(t_low, t_high, M_local[i, :])
+            for i in range(3)
+        ])
+
+    elif mode == "nearest":
+        # index du point 250 Hz le plus proche
+        idx = np.searchsorted(t_high, t_low)
+        idx = np.clip(idx, 1, len(t_high)-1)
+
+        left = t_high[idx - 1]
+        right = t_high[idx]
+        choose_right = (right - t_low) < (t_low - left)
+        nearest_idx = idx.copy()
+        nearest_idx[~choose_right] -= 1
+
+        Fp_resampled = F_local[:, nearest_idx]
+        Mp_resampled = M_local[:, nearest_idx]
+
+    else:
+        raise ValueError("mode must be 'interp' or 'nearest'")
+
+    # ----------------------------
+    # 3) Transformation en global
+    # ----------------------------
     F_global = np.zeros((3, n_frames))
     M_global = np.zeros((3, n_frames))
 
     for i in range(n_frames):
+        # force/moment 100 Hz correspondants
+        Fp = Fp_resampled[:, i]
+        Mp = Mp_resampled[:, i]
 
-        # Prendre la bonne valeur de force : 2000 Hz (trigger) → 100 Hz (frames)
-        Fp = F_local[:, i * ratio]
-        Mp = M_local[:, i * ratio]
-
-        # Coordonnées généralisées
+        # coordonnées généralisées
         q_i = biorbd.GeneralizedCoordinates(q_recons[:, i])
 
-        # Roto-transformation globale du segment
+        # transformation du segment
         T = model.globalJCS(q_i, "Pedal_left").to_array()
         R = T[:3, :3]
         p = T[:3, 3]
 
-        # Transformation de la force
-        Fg = R.T @ Fp
-        # Transformation du moment
-        Mg = R.T @ Mp + np.cross(p, Fg)
+        # transformation
+        Fg = R @ Fp
+        Mg = R @ Mp + np.cross(p, Fg)
 
         F_global[:, i] = Fg
         M_global[:, i] = Mg
@@ -176,7 +233,7 @@ def main(show=True):
     markers = extract_relevant_markers(raw_markers, mapping)
 
     # === APPLY FRAME SELECTION HERE ===
-    markers = markers[:, :, find_trigger(str(c3d_path)):END_FRAME]
+    markers = markers[:, :, find_trigger(str(c3d_path)):END_FRAME] #find_trigger(str(c3d_path))
     n_frames = markers.shape[2]
     kalman = biorbd.KalmanReconsMarkers(model)
 
@@ -208,7 +265,17 @@ def main(show=True):
         for row in csvreader:
             all_data.append(np.array(row[0].split("\t")))
     all_data = np.array(all_data, dtype=float).T
+    plt.plot(all_data[1,:], label='Fx')
+    plt.plot(all_data[2,:], label='Fy')
+    plt.plot(all_data[3,:], label='Fz')
+    plt.legend()
+    plt.show()
 
+    plt.plot(all_data[4, :], label='Mx')
+    plt.plot(all_data[5, :], label='My')
+    plt.plot(all_data[6, :], label='Mz')
+    plt.legend()
+    plt.show()
     global_force, global_moment = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:])
     global_constraint = [global_moment, global_force]
     np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_global_40W.npy", global_constraint)
