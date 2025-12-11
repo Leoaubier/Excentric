@@ -112,6 +112,7 @@ def extract_cycles(signal_deg, peaks):
         cycles.append(cyc_norm)
     return np.array(cycles)
 
+
 def main(show=True):
 
     model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod")
@@ -146,16 +147,19 @@ def main(show=True):
 
     kalman = biorbd.ExtendedKalmanFilterMarkers(model, frequency=100)
     q_i, _, _ = kalman.reconstruct_frame(markers[4000])
-    for i, (q_i, _, _) in enumerate(kalman.reconstruct_frames(markers)):
+    for i, (q_i, qdot_i, qddot_i) in enumerate(kalman.reconstruct_frames(markers)):
         q_recons[:, i] = q_i
-        #qdot_recons[:, i] = qdot_i
-        #qddot_recons[:, i] = qddot_i
+        qdot_recons[:, i] = qdot_i
+        qddot_recons[:, i] = qddot_i
 
         if i % 200 == 0:
             print(f"Frame {i}/{n_frames}")
 
-    print("IK terminé.")
+    print("IK Kalmann terminé.")
 
+    q_recons[11, :] = (q_recons[11, :] + pi)%(2*pi)
+    q_recons[12, :] = (-q_recons[12, :])%(2*pi)
+    q_recons[13, :] = (q_recons[13, :] - pi)
 
     JOINTS = {
         "Plan élévation hum": 0,
@@ -170,12 +174,14 @@ def main(show=True):
     elbow_euler = np.rad2deg(np.unwrap(q_recons[14, :]))
 
 
+
     plt.plot((np.rad2deg(np.unwrap(q_recons[11, :]))), label="Plan élévation hum kalmann")  #--> Abduction épaule
     plt.plot((np.rad2deg(np.unwrap(q_recons[12, :]))), label="élévation hum kalmann")  #--> Flexion épaule
     plt.plot((np.rad2deg(np.unwrap(q_recons[13, :]))), label="Rot axiale hum kalmann")  #-->
     plt.plot(elbow_euler, label="Coude kalmann")  #--> Flexion coude
     plt.legend()
     plt.show()
+
     # ===========================
     # 2) Enregistrement des données
     # ===========================

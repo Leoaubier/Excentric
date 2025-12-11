@@ -189,12 +189,12 @@ def transform_forces_to_global(model, q_recons, F_local, M_local,
         # force/moment 100 Hz correspondants
         Fp = Fp_resampled[:, i]
         Mp = Mp_resampled[:, i]
+        q = q_recons[:, i]
 
-        # coordonnées généralisées
-        q_i = biorbd.GeneralizedCoordinates(q_recons[:, i])
+        model.update_kinematics(q)
 
-        # transformation du segment
-        T = model.globalJCS(q_i, "Pedal_left").to_array()
+        T = model.segments["Pedal_left"].frame()
+
         R = T[:3, :3]
         p = T[:3, 3]
 
@@ -218,8 +218,9 @@ def main(show=True):
 
     #afficher_entetes_ezc3d(str(c3d_path))
 
-    model = biorbd.Model(str(model_path))
-    nq = model.nbQ()
+    model = biorbd.Biorbd(str(model_path))
+    nq = model.nb_q
+
     print("DoF du modèle :", nq)
 
     c3d = ezc3d.c3d(str(c3d_path))
@@ -236,19 +237,20 @@ def main(show=True):
     # === APPLY FRAME SELECTION HERE ===
     markers = markers[:, :, find_trigger(str(c3d_path)):END_FRAME] #find_trigger(str(c3d_path))
     n_frames = markers.shape[2]
-    kalman = biorbd.KalmanReconsMarkers(model)
+
+    markers = markers.transpose(2, 0, 1)  # => (n_frames, 3, nbDoF)
+
+    markers = [frame for frame in markers]  # => liste de matrices
+
 
     q_recons = np.zeros((nq, n_frames))
 
-    for i in range(n_frames):
-        marker_nodes = numpy_markers_to_nodes(markers[:, :, i])
-
-        q = biorbd.GeneralizedCoordinates(model)
-        qdot = biorbd.GeneralizedVelocity(model)
-        qddot = biorbd.GeneralizedAcceleration(model)
-
-        kalman.reconstructFrame(model, marker_nodes, q, qdot, qddot)
-        q_recons[:, i] = q.to_array()
+    kalman = biorbd.ExtendedKalmanFilterMarkers(model, frequency=100)
+    q_i, _, _ = kalman.reconstruct_frame(markers[4000])
+    for i, (q_i, _, _) in enumerate(kalman.reconstruct_frames(markers)):
+        q_recons[:, i] = q_i
+        # qdot_recons[:, i] = qdot_i
+        # qddot_recons[:, i] = qddot_i
 
         if i % 200 == 0:
             print(f"Frame {i}/{n_frames}")
@@ -277,11 +279,12 @@ def main(show=True):
     plt.plot(all_data[6, :], label='Mz')
     plt.legend()
     plt.show()
+
     global_force, global_moment = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:])
     global_constraint = [global_moment, global_force]
     np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_global_40W.npy", global_constraint)
     print("Forces et Moments enregistrés")
-    print("markers frames:", markers.shape[2])
+    print("markers frames:", n_frames)
     print("forces frames:", all_data.shape[1])  # total forces
     print("IK frames    :", q_recons.shape[1])
 
@@ -297,7 +300,8 @@ def main(show=True):
     plt.legend()
     plt.show()
     if show and biorbd_viz_found:
-        b = bioviz.Viz(loaded_model=model)
+        modelviz = biorbd.Model(str(model_path))
+        b = bioviz.Viz(loaded_model=modelviz)
         b.load_movement(q_recons)
         b.exec()
 

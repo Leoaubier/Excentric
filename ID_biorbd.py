@@ -2,7 +2,7 @@ from pathlib import Path
 import numpy as np
 import biorbd
 import matplotlib.pyplot as plt
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, butter, filtfilt
 
 #
 # This examples shows how to
@@ -22,6 +22,8 @@ qddot_path  = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/qddot_inverse_kinemat
 force_path = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_global_40W.npy"
 force_pedal_path = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_pedal_40W.npy"
 
+
+
 def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
     current_file_dir = Path(__file__).parent
     model = biorbd.Biorbd(model_path)
@@ -33,7 +35,15 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
 
     q_recons = np.load(q_path)
     qdot_recons = np.load(qdot_path)
+
+    fs = 100
+    cutoff = 6
+    dt = 1 / fs
+    b, a = butter(4, cutoff / (fs / 2), btype='low')
+    qdot_filt = filtfilt(b, a, qdot_recons, axis=1)
+
     qddot_recons = np.load(qddot_path)
+    qddot_filt = filtfilt(b, a, qddot_recons, axis=1)
     tau = np.zeros((nq, int(q_recons.shape[1])))
 
     origin = np.zeros((3, q_recons.shape[1]))
@@ -65,12 +75,16 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
     plt.legend()
     plt.show()
 
+    #------ Derive
+
 
     #force_pedal_conca = -np.concatenate((moment_pedal_hand, force_pedal_hand), axis=0)
     for i in range(q_recons.shape[1]):
         q = q_recons[:,i]
-        qdot = qdot_recons[:,i]
-        qddot = qddot_recons[:,i]
+        qdot = qdot_filt[:,i]
+        qddot = qddot_filt[:,i]
+
+
         model.external_force_set.reset()
         # Proceed with the inverse dynamics
         model.external_force_set.add(segment_name="hand_left", force=force_conca[:,i],
@@ -102,12 +116,13 @@ def extract_cycles_generic(signal, peaks):
 def main():
     # Load a predefined model
 
+
     tau, dof_name = inverse_dynamic(model_path, q_path, qdot_path, qddot_path)
 
     np.save("/Users/leo/Desktop/Projet/Collecte_25_11/ID/tau_inverse_dynamic_Sidonie_40w", tau)
     plt.figure()
     for i in range(len(dof_name)):
-        plt.plot(tau[i,:], label=dof_name[i])
+        plt.plot(tau[i,500:], label=dof_name[i])
     plt.legend()
     plt.show()
 

@@ -1,6 +1,7 @@
 from pyorerun import BiorbdModel, PhaseRerun
 import numpy as np
 import biorbd
+from math import pi
 
 model_path = '/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod'
 model_pedal_path = '/Users/leo/Desktop/Projet/modele_opensim/model_pedal.bioMod'
@@ -10,6 +11,7 @@ force_path = '/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_global_40W.
 
 
 q = np.load(movement_path)
+
 q_pedal = np.load(movement_pedal_path)# shape = (nQ, nFrames)
 n_frames = q.shape[1]
 
