@@ -97,14 +97,28 @@ def numpy_markers_to_nodes(markers_frame):
         nodes.append(node)
     return nodes
 
+def wrap_to_180(angle_deg):
+    return (np.unwrap(angle_deg) + 180) % 360 - 180
+
+def extract_cycles(signal_deg, peaks):
+    cycles = []
+    for i in range(len(peaks) - 1):
+        cyc = signal_deg[peaks[i]:peaks[i + 1]]
+        cyc_norm = np.interp(
+            np.linspace(0, 1, 200),
+            np.linspace(0, 1, len(cyc)),
+            cyc
+        )
+        cycles.append(cyc_norm)
+    return np.array(cycles)
 
 def main(show=True):
 
     model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod")
     c3d_path = Path("/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/concentric_40W.c3d")
 
-    model = biorbd.Model(str(model_path))
-    nq = model.nbQ()
+    model = biorbd.Biorbd(str(model_path))
+    nq = model.nb_q
 
     c3d = ezc3d.c3d(str(c3d_path))
     raw_markers = c3d["data"]["points"][:3, :, :]
@@ -121,58 +135,47 @@ def main(show=True):
     markers = markers[:, :, find_trigger(str(c3d_path)):END_FRAME] #find_trigger(str(c3d_path))
     n_frames = markers.shape[2]
 
-    kalman = biorbd.KalmanReconsMarkers(model)
+    markers = markers.transpose(2, 0, 1)  # => (n_frames, 3, nbDoF)
+
+    markers = [frame for frame in markers]  # => liste de matrices
+
+
     q_recons = np.zeros((nq, n_frames))
     qdot_recons = np.zeros((nq, n_frames))
     qddot_recons = np.zeros((nq, n_frames))
 
-    marker_nodes = numpy_markers_to_nodes(markers[:, :, 4000]) #initialisation à un
+    kalman = biorbd.ExtendedKalmanFilterMarkers(model, frequency=100)
+    q_i, _, _ = kalman.reconstruct_frame(markers[4000])
+    for i, (q_i, _, _) in enumerate(kalman.reconstruct_frames(markers)):
+        q_recons[:, i] = q_i
+        #qdot_recons[:, i] = qdot_i
+        #qddot_recons[:, i] = qddot_i
 
-    q = biorbd.GeneralizedCoordinates(model)
-    qdot = biorbd.GeneralizedVelocity(model)
-    qddot = biorbd.GeneralizedAcceleration(model)
-
-    kalman.reconstructFrame(model, marker_nodes, q, qdot, qddot)
-
-    for i in range(n_frames):
-        marker_nodes = numpy_markers_to_nodes(markers[:, :, i])
-
-        q = biorbd.GeneralizedCoordinates(model)
-        qdot = biorbd.GeneralizedVelocity(model)
-        qddot = biorbd.GeneralizedAcceleration(model)
-
-        kalman.reconstructFrame(model, marker_nodes, q, qdot, qddot)
-
-        q_recons[:, i] = q.to_array()
-        qdot_recons[:, i] = qdot.to_array()
-        qddot_recons[:, i] = qddot.to_array()
         if i % 200 == 0:
             print(f"Frame {i}/{n_frames}")
-
-
 
     print("IK terminé.")
 
 
     JOINTS = {
-        "abduction épaule": 0,
-        "Flexion de l'épaule": 1,
-        "Rot axiale de l'épaule": 2
+        "Plan élévation hum": 0,
+        "élévation hum": 1,
+        "Rot axiale hum": 2
     }
 
     # ===========================
     # 1) Détection des pics via le coude (référence du cycle)
     # ===========================
-    coude = np.unwrap(q_recons[14, :])
-    plt.plot(coude)
-#    plt.plot(np.unwrap(q_recons2[1, :]))
-#    plt.show()
+    shoulder_euler = np.rad2deg(np.unwrap(q_recons[11:14, :]))
+    elbow_euler = np.rad2deg(np.unwrap(q_recons[14, :]))
 
-    plt.plot(np.rad2deg(q_recons[11, :]), label="adbuction epaule kalmann")  #--> Abduction épaule
-    plt.plot(np.rad2deg(q_recons[12, :]), label="Flexion epaule kalmann")  #--> Flexion épaule
-    plt.plot(np.rad2deg(q_recons[13, :]), label="Rot axiale epaule kalmann")  #-->
-    plt.plot(np.rad2deg(coude), label="Coude kalmann")  #--> Flexion coude
 
+    plt.plot((np.rad2deg(np.unwrap(q_recons[11, :]))), label="Plan élévation hum kalmann")  #--> Abduction épaule
+    plt.plot((np.rad2deg(np.unwrap(q_recons[12, :]))), label="élévation hum kalmann")  #--> Flexion épaule
+    plt.plot((np.rad2deg(np.unwrap(q_recons[13, :]))), label="Rot axiale hum kalmann")  #-->
+    plt.plot(elbow_euler, label="Coude kalmann")  #--> Flexion coude
+    plt.legend()
+    plt.show()
     # ===========================
     # 2) Enregistrement des données
     # ===========================
@@ -182,67 +185,17 @@ def main(show=True):
     print("données IK enregistrées :)")
 
     # ===========================
-    # 3) Matrice de rot
-    # ===========================
-    def wrap_to_180(angle_deg):
-        return (np.unwrap(angle_deg) + 180) % 360 - 180
-
-    n_frames = q_recons.shape[1]
-
-    shoulder_euler = np.zeros((3, n_frames))  # plan / élévation / rotation
-    elbow_euler = np.zeros((3, n_frames))  # suivant "XYZ"
-
-    for i in range(n_frames):
-        q_i = biorbd.GeneralizedCoordinates(q_recons[:, i])
-
-        rt_scap = model.globalJCS(q_i, "scapula_left")
-        rt_humerus = model.globalJCS(q_i, "humerus_left")
-        rt_ulna = model.globalJCS(q_i, "ulna_left")
-
-        rt_scap_T = rt_scap.transpose()
-        rt_scap_hum = rt_scap_T.multiply(rt_humerus)
-        rt_hum_T = rt_humerus.transpose()
-        rt_hum_ulna = rt_hum_T.multiply(rt_ulna)
-
-        ang_sh = biorbd.RotoTrans.toEulerAngles(rt_scap_hum, "xyz")
-        ang_el = biorbd.RotoTrans.toEulerAngles(rt_hum_ulna, "xyz")
-
-        shoulder_euler[:, i] = np.degrees(ang_sh.to_array())
-        elbow_euler[:, i] = np.degrees(ang_el.to_array())
-        print(i)
-
-    # Wrapping dans [-180, 180]
-    shoulder_euler = wrap_to_180(shoulder_euler)
-    elbow_euler = wrap_to_180(elbow_euler)
-
-    plt.plot(shoulder_euler[0, :], label="Épaule – plan d'élévation")
-    plt.plot(shoulder_euler[1, :], label="Épaule – élévation")
-    plt.plot(shoulder_euler[2, :], label="Épaule – rotation axiale")
-    #plt.plot(elbow_euler[2, :], label="Coude – rotation flexion/extension")
-
-    plt.legend()
-
-
-    # ===========================
     # 4) Extraction & normalisation des cycles
     # ===========================
-    ref_signal = np.degrees(elbow_euler[2, :])  # --> flexion coud
-    peaks, _ = find_peaks(ref_signal, distance=100)
+
+
+    FIRST_FRAME_PLOT = 2000
+    END_FRAME_PLOT = 6000
+
+
+    peaks, _ = find_peaks(elbow_euler[FIRST_FRAME_PLOT:END_FRAME_PLOT], distance=100)
 
     print("Nombre de cycles détectés :", len(peaks) - 1)
-
-    def extract_cycles(signal_deg, peaks):
-        cycles = []
-        for i in range(len(peaks) - 1):
-            cyc = signal_deg[peaks[i]:peaks[i + 1]]
-            cyc_norm = np.interp(
-                np.linspace(0, 1, 200),
-                np.linspace(0, 1, len(cyc)),
-                cyc
-            )
-            cycles.append(cyc_norm)
-        return np.array(cycles)
-
     # Extraire les cycles pour chaque articulation
     cycles_per_joint = {}
     mean_per_joint = {}
@@ -250,12 +203,12 @@ def main(show=True):
 
     for name, dof in JOINTS.items():
         #sig = np.degrees(q_recons[dof, :])
-        cycles = extract_cycles(shoulder_euler[dof,:], peaks)
+        cycles = extract_cycles(shoulder_euler[dof,FIRST_FRAME_PLOT:END_FRAME_PLOT], peaks)
         cycles_per_joint[name] = cycles
         mean_per_joint[name] = np.mean(cycles, axis=0)
         std_per_joint[name] = np.std(cycles, axis=0)
 
-    cycles = extract_cycles(elbow_euler[2, :], peaks)
+    cycles = extract_cycles(elbow_euler[FIRST_FRAME_PLOT:END_FRAME_PLOT], peaks)
 
     #On ajoute ke coude qui est dans un autre np
     cycles_per_joint["flexion coude"] = cycles
@@ -299,11 +252,10 @@ def main(show=True):
 
     # Animate the results if biorbd viz is installed
     if show and biorbd_viz_found:
-        b = bioviz.Viz(loaded_model=model, show_local_ref_frame=True)
+        modelviz= biorbd.Model(str(model_path))
+        b = bioviz.Viz(loaded_model=modelviz, show_local_ref_frame=True)
         b.load_movement(q_recons)
         b.exec()
-
-
 
 if __name__ == "__main__":
     main(show=True)
