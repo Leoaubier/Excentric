@@ -178,6 +178,7 @@ def transform_forces_to_global(model, q_recons, F_local, M_local,
     else:
         raise ValueError("mode must be 'interp' or 'nearest'")
 
+    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_pedal_40W.npy", [Mp_resampled, Fp_resampled])
     # ----------------------------
     # 3) Transformation en global
     # ----------------------------

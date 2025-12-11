@@ -154,11 +154,6 @@ def main(show=True):
     print("IK terminé.")
 
 
-    # === Extraction coude ===
-    # ===========================
-    # CHOIX DES DOF À ANALYSER
-    # ===========================
-
     JOINTS = {
         "abduction épaule": 0,
         "Flexion de l'épaule": 1,
@@ -169,7 +164,9 @@ def main(show=True):
     # 1) Détection des pics via le coude (référence du cycle)
     # ===========================
     coude = np.unwrap(q_recons[14, :])
-
+    plt.plot(coude)
+#    plt.plot(np.unwrap(q_recons2[1, :]))
+#    plt.show()
 
     plt.plot(np.rad2deg(q_recons[11, :]), label="adbuction epaule kalmann")  #--> Abduction épaule
     plt.plot(np.rad2deg(q_recons[12, :]), label="Flexion epaule kalmann")  #--> Flexion épaule
@@ -305,6 +302,8 @@ def main(show=True):
         b = bioviz.Viz(loaded_model=model, show_local_ref_frame=True)
         b.load_movement(q_recons)
         b.exec()
+
+
 
 if __name__ == "__main__":
     main(show=True)
