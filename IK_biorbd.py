@@ -174,7 +174,6 @@ def main(show=True):
     elbow_euler = np.rad2deg(np.unwrap(q_recons[14, :]))
 
 
-
     plt.plot((np.rad2deg(np.unwrap(q_recons[11, :]))), label="Plan élévation hum kalmann")  #--> Abduction épaule
     plt.plot((np.rad2deg(np.unwrap(q_recons[12, :]))), label="élévation hum kalmann")  #--> Flexion épaule
     plt.plot((np.rad2deg(np.unwrap(q_recons[13, :]))), label="Rot axiale hum kalmann")  #-->
@@ -193,7 +192,6 @@ def main(show=True):
     # ===========================
     # 4) Extraction & normalisation des cycles
     # ===========================
-
 
     FIRST_FRAME_PLOT = 2000
     END_FRAME_PLOT = 6000
@@ -253,8 +251,6 @@ def main(show=True):
 
     plt.tight_layout()
     plt.show()
-
-
 
     # Animate the results if biorbd viz is installed
     if show and biorbd_viz_found:

@@ -1,4 +1,6 @@
 from pathlib import Path
+from tkinter.constants import FIRST
+
 import numpy as np
 import biorbd
 
@@ -26,9 +28,12 @@ def main():
     # Choose a position/velocity/torque to compute muscle activations from.
     # If only one frame the Vector are not mandatory and the Static Optimization function can be called
     # directly with numpy arrays
-    q_list = [q[:, i] for i in range(q.shape[1])]
-    qdot_list = [qdot[:, i] for i in range(qdot.shape[1])]
-    tau_list = [tau[:, i] for i in range(tau.shape[1])]
+    FIRST = 2000
+    END = 3000
+
+    q_list = [q[:, i] for i in range(FIRST, END)]
+    qdot_list = [qdot[:, i] for i in range(FIRST, END)]
+    tau_list = [tau[:, i] for i in range(FIRST, END)]
 
 
     # Proceed with the static optimization. When perform is called, all the frames are processed at once, even though
@@ -43,6 +48,9 @@ def main():
     # Print them to the console
     for i, activations in enumerate(muscle_activations):
         print(f"Frame {i}: {activations}")
+
+    print(muscle_activations.shape)
+
 
 
 if __name__ == "__main__":
