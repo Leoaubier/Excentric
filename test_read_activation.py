@@ -43,13 +43,13 @@ def main():
     model = biorbd.Biorbd(f"/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod")
     muscles = [model.muscles[i].name
                for i in range(model.muscles.__len__())]
-    path = "/Users/leo/Desktop/Projet/Collecte_25_11/statique/actcivation.rtf"
+    path = "/Users/leo/Desktop/Projet/Collecte_25_11/statique/muscle_activations.npy"
     q = np.load("/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy")
     qdot = np.load("/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_sidonie_40W.npy")
     qddot = np.load("/Users/leo/Desktop/Projet/Collecte_25_11/IK/qddot_inverse_kinematic_sidonie_40W.npy")
     tau = np.load("/Users/leo/Desktop/Projet/Collecte_25_11/ID/tau_inverse_dynamic_Sidonie_40w.npy")
 
-    a = read_activation_file(path)
+    a = np.load(path)
     print(a.shape)
 
     fig, axes = plt.subplots(7, 5, figsize=(4 * 7, 3 * 5), sharex=True)

@@ -1,0 +1,1482 @@
+version 4
+
+
+// Model scaled using Biobuddy.
+gravity	0.0	0.0	-9.8
+
+
+
+
+// --------------------------------------------------------------
+// SEGMENTS
+// --------------------------------------------------------------
+
+segment	root
+	parent	base
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	ground
+	parent	root
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	thorax_parent_offset
+	parent	ground
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	thorax_translation
+	parent	thorax_parent_offset
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	translations	xyz
+	rangesQ 
+		-20.000000	20.000000
+		-2.000000	4.000000
+		-5.000000	5.000000
+
+endsegment
+
+
+
+segment	thorax_rotation_transform
+	parent	thorax_translation
+	RTinMatrix	1
+	RT
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	xyz
+	rangesQ 
+		-1.570800	1.570800
+		-1.570800	1.570800
+		-1.570800	1.570800
+
+endsegment
+
+
+
+segment	thorax_reset_axis
+	parent	thorax_rotation_transform
+	RTinMatrix	1
+	RT
+		0.000000	0.000000	1.000000	0.000000
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	thorax_geom_2
+	parent	thorax_reset_axis
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	thorax
+	parent	thorax_geom_2
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	-0.000000
+		0.000000	1.000000	0.000000	-0.000000
+		0.000000	0.000000	1.000000	-0.000000
+		0.000000	0.000000	0.000000	1.000000
+	mass	19.78150598790635
+	CenterOfMass	-0.072070	-0.018121	0.000000
+	inertia
+		1.909753	0.000000	0.000000
+		0.000000	0.518397	0.000000
+		0.000000	0.000000	1.909753
+endsegment
+
+marker	Ster
+	parent	thorax
+	position	0.05199079	-0.07261567	-0.00433294
+	technical	1
+	anatomical	0
+endmarker
+marker	Xiph
+	parent	thorax
+	position	0.08842765	-0.21340572	0.00000000
+	technical	1
+	anatomical	0
+endmarker
+marker	C7
+	parent	thorax
+	position	-0.11563341	0.04727181	0.00000000
+	technical	1
+	anatomical	0
+endmarker
+marker	T10
+	parent	thorax
+	position	-0.14267697	-0.21340572	0.00000000
+	technical	1
+	anatomical	0
+endmarker
+
+
+
+segment	clavicle_left_parent_offset
+	parent	thorax
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.007690
+		0.000000	1.000000	0.000000	0.008426
+		0.000000	0.000000	1.000000	-0.030962
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	clavicle_left_translation
+	parent	clavicle_left_parent_offset
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	thorax_offset_sternoclavicular_left_r1
+	parent	clavicle_left_translation
+	RTinMatrix	1
+	RT
+		-0.015300	0.178044	-0.983904	0.000000
+		-0.989299	-0.145493	-0.010944	0.000000
+		-0.145100	0.973207	0.178364	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	x
+	rangesQ 
+		-3.000000	3.000000
+
+endsegment
+
+
+
+segment	thorax_offset_sternoclavicular_left_r2
+	parent	thorax_offset_sternoclavicular_left_r1
+	RTinMatrix	1
+	RT
+		-0.488349	0.000020	-0.872648	0.000000
+		0.870199	0.074876	-0.486977	0.000000
+		0.065331	-0.997193	-0.036583	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	y
+	rangesQ 
+		-3.000000	3.000000
+
+endsegment
+
+
+
+segment	clavicle_left_rotation_2
+	parent	thorax_offset_sternoclavicular_left_r2
+	RTinMatrix	1
+	RT
+		-0.004008	0.487902	0.872889	0.000000
+		0.999965	0.008339	-0.000069	0.000000
+		-0.007312	0.872859	-0.487918	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	clavicle_left_reset_axis
+	parent	clavicle_left_rotation_2
+	RTinMatrix	1
+	RT
+		0.994318	-0.008260	-0.106131	0.000000
+		0.023560	0.989336	0.143732	0.000000
+		0.103812	-0.145416	0.983909	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	clavicle_left
+	parent	clavicle_left_reset_axis
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	-0.000000
+		0.000000	1.000000	0.000000	-0.000000
+		0.000000	0.000000	1.000000	-0.000000
+		0.000000	0.000000	0.000000	1.000000
+	mass	0.17092194465678767
+	CenterOfMass	-0.014319	0.008174	0.063490
+	inertia
+		0.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000
+endsegment
+
+marker	Clav_SC
+	parent	clavicle_left
+	position	0.00969076	0.00471342	-0.00325288
+	technical	1
+	anatomical	0
+endmarker
+marker	Clav_AC
+	parent	clavicle_left
+	position	-0.02666294	0.02193550	-0.11223110
+	technical	1
+	anatomical	0
+endmarker
+marker	Clav_Mid
+	parent	clavicle_left
+	position	0.01149225	0.00451484	-0.05959453
+	technical	1
+	anatomical	0
+endmarker
+
+
+
+segment	scapula_left_parent_offset
+	parent	clavicle_left
+	RTinMatrix	1
+	RT
+		0.867819	0.000000	-0.496880	-0.016129
+		-0.246890	0.867819	-0.431202	0.019311
+		0.431202	0.496880	0.753110	-0.130411
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	scapula_left_translation
+	parent	scapula_left_parent_offset
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	scapula_left_rotation_transform
+	parent	scapula_left_translation
+	RTinMatrix	1
+	RT
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	-1.000000	0.000000	0.000000
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	xyz
+	rangesQ 
+		-3.000000	3.000000
+		-3.000000	3.000000
+		-3.000000	3.000000
+
+endsegment
+
+
+
+segment	scapula_left_reset_axis
+	parent	scapula_left_rotation_transform
+	RTinMatrix	1
+	RT
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	-1.000000	0.000000	0.000000
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	scapula_left
+	parent	scapula_left_reset_axis
+	RTinMatrix	1
+	RT
+		0.867819	-0.246890	0.431202	-0.000000
+		-0.000000	0.867819	0.496880	-0.000000
+		-0.496880	-0.431202	0.753110	-0.000000
+		0.000000	0.000000	0.000000	1.000000
+	mass	0.4382466851394301
+	CenterOfMass	-0.096698	-0.048306	-0.074626
+	inertia
+		0.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000
+endsegment
+
+marker	Scap_AA
+	parent	scapula_left
+	position	-0.06768824	-0.00476792	-0.00229460
+	technical	1
+	anatomical	0
+endmarker
+marker	Scap_TS
+	parent	scapula_left
+	position	-0.12265179	-0.01551004	0.10229068
+	technical	1
+	anatomical	0
+endmarker
+marker	Scap_IA
+	parent	scapula_left
+	position	-0.15446144	-0.14462751	0.09069940
+	technical	1
+	anatomical	0
+endmarker
+
+
+
+segment	humerus_left_parent_offset
+	parent	scapula_left
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	-0.011171
+		0.000000	1.000000	0.000000	-0.036681
+		0.000000	0.000000	1.000000	-0.009000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	humerus_left_translation
+	parent	humerus_left_parent_offset
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	scapula_left_offset_shoulder_left_plane
+	parent	humerus_left_translation
+	RTinMatrix	1
+	RT
+		-0.000100	0.710109	0.704092	0.000000
+		-1.000000	-0.000141	0.000001	0.000000
+		0.000100	-0.704092	0.710109	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	x
+	rangesQ 
+		-3.000000	3.000000
+
+endsegment
+
+
+
+segment	scapula_left_offset_shoulder_left_ele
+	parent	scapula_left_offset_shoulder_left_plane
+	RTinMatrix	1
+	RT
+		-0.647913	0.000100	0.761715	0.000000
+		0.536363	0.710109	0.456136	0.000000
+		-0.540855	0.704092	-0.460142	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	y
+	rangesQ 
+		-3.000000	3.000000
+
+endsegment
+
+
+
+segment	scapula_left_offset_shoulder_left_rotation
+	parent	scapula_left_offset_shoulder_left_ele
+	RTinMatrix	1
+	RT
+		0.302637	-0.699084	-0.647837	0.000000
+		0.917699	0.397277	0.000000	0.000000
+		0.257370	-0.594519	0.761779	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	z
+	rangesQ 
+		-3.000000	3.000000
+
+endsegment
+
+
+
+segment	humerus_left_reset_axis
+	parent	scapula_left_offset_shoulder_left_rotation
+	RTinMatrix	1
+	RT
+		0.917699	-0.000184	-0.397277	0.000000
+		0.397277	-0.000079	0.917699	0.000000
+		-0.000200	-1.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	humerus_left
+	parent	humerus_left_reset_axis
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	-0.000000
+		0.000000	1.000000	0.000000	-0.000000
+		0.000000	0.000000	1.000000	-0.000000
+		0.000000	0.000000	0.000000	1.000000
+	mass	1.6384867213408782
+	CenterOfMass	0.000000	-0.163023	0.000000
+	inertia
+		0.009458	0.000000	0.000000
+		0.000000	0.003263	0.000000
+		0.000000	0.000000	0.010616
+endsegment
+
+marker	Delt
+	parent	humerus_left
+	position	0.00002576	-0.11815648	-0.02407401
+	technical	1
+	anatomical	0
+endmarker
+marker	EpicI
+	parent	humerus_left
+	position	0.00088180	-0.28243652	-0.02595295
+	technical	1
+	anatomical	0
+endmarker
+marker	EpicM
+	parent	humerus_left
+	position	0.00024379	-0.28123186	0.05559024
+	technical	1
+	anatomical	0
+endmarker
+marker	ArmI
+	parent	humerus_left
+	position	0.00064939	-0.15667059	-0.02143670
+	technical	1
+	anatomical	0
+endmarker
+
+
+
+segment	ulna_left_parent_offset
+	parent	humerus_left
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.006045
+		0.000000	1.000000	0.000000	-0.287788
+		0.000000	0.000000	1.000000	0.012189
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	ulna_left_translation
+	parent	ulna_left_parent_offset
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	ulna_left_rotation_0
+	parent	ulna_left_translation
+	RTinMatrix	1
+	RT
+		-1.000000	0.000000	0.000000	0.000000
+		0.000000	0.752980	0.658043	0.000000
+		0.000000	0.658043	-0.752980	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	ulna_left_rotation_1
+	parent	ulna_left_rotation_0
+	RTinMatrix	1
+	RT
+		-0.994100	0.000000	-0.108465	0.000000
+		0.071375	-0.752980	-0.654161	0.000000
+		-0.081672	-0.658043	0.748538	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	humerus_left_offset_elbow_left_flexion
+	parent	ulna_left_rotation_1
+	RTinMatrix	1
+	RT
+		0.905007	0.421264	0.059151	0.000000
+		0.419753	-0.906900	0.036600	0.000000
+		0.069063	-0.008294	-0.997578	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	z
+	rangesQ 
+		-3.000000	3.000000
+
+endsegment
+
+
+
+segment	ulna_left_reset_axis
+	parent	humerus_left_offset_elbow_left_flexion
+	RTinMatrix	1
+	RT
+		0.907159	-0.419753	0.029506	0.000000
+		0.417879	0.906900	0.053938	0.000000
+		-0.049400	-0.036600	0.998108	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	ulna_left
+	parent	ulna_left_reset_axis
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	-0.000000
+		0.000000	1.000000	0.000000	-0.000000
+		0.000000	0.000000	1.000000	-0.000000
+		0.000000	0.000000	0.000000	1.000000
+	mass	0.7827153277943143
+	CenterOfMass	0.000000	-0.195528	0.000000
+	inertia
+		0.010043	0.000000	0.000000
+		0.000000	0.002097	0.000000
+		0.000000	0.000000	0.010895
+endsegment
+
+marker	Elbow
+	parent	ulna_left
+	position	-0.06001588	-0.00834113	-0.00097712
+	technical	1
+	anatomical	0
+endmarker
+marker	StylU
+	parent	ulna_left
+	position	-0.00672936	-0.38392469	-0.08075315
+	technical	1
+	anatomical	0
+endmarker
+marker	LArmI
+	parent	ulna_left
+	position	0.00265015	-0.21377522	-0.08390408
+	technical	1
+	anatomical	0
+endmarker
+
+
+
+segment	radius_left_parent_offset
+	parent	ulna_left
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000650
+		0.000000	1.000000	0.000000	-0.018660
+		0.000000	0.000000	1.000000	-0.032444
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	radius_left_translation
+	parent	radius_left_parent_offset
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	radius_left_rotation_0
+	parent	radius_left_translation
+	RTinMatrix	1
+	RT
+		-1.000000	0.000000	0.000000	0.000000
+		0.000000	0.875319	0.483546	0.000000
+		0.000000	0.483546	-0.875319	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	ulna_left_offset_pro_sup_left
+	parent	radius_left_rotation_0
+	RTinMatrix	1
+	RT
+		-0.551110	-0.017161	-0.834256	0.000000
+		0.321916	-0.926764	-0.193594	0.000000
+		-0.769836	-0.375252	0.516273	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	y
+	rangesQ 
+		-3.000000	3.000000
+
+endsegment
+
+
+
+segment	radius_left_rotation_2
+	parent	ulna_left_offset_pro_sup_left
+	RTinMatrix	1
+	RT
+		0.483703	0.279174	0.829514	0.000000
+		0.642208	-0.757132	-0.119668	0.000000
+		0.594643	0.590604	-0.545515	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	radius_left_reset_axis
+	parent	radius_left_rotation_2
+	RTinMatrix	1
+	RT
+		0.773679	-0.633577	0.000000	0.000000
+		0.633577	0.773679	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	radius_left
+	parent	radius_left_reset_axis
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	-0.000000
+		0.000000	1.000000	0.000000	-0.000000
+		0.000000	0.000000	1.000000	-0.000000
+		0.000000	0.000000	0.000000	1.000000
+	mass	0.7827153277943143
+	CenterOfMass	0.000000	-0.195528	0.000000
+	inertia
+		0.010043	0.000000	0.000000
+		0.000000	0.002097	0.000000
+		0.000000	0.000000	0.010895
+endsegment
+
+marker	StylR
+	parent	radius_left
+	position	0.05588336	-0.36583931	-0.05187816
+	technical	1
+	anatomical	0
+endmarker
+
+
+
+segment	hand_left_parent_offset
+	parent	radius_left
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.027766
+		0.000000	1.000000	0.000000	-0.373293
+		0.000000	0.000000	1.000000	-0.038563
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	hand_left_translation
+	parent	hand_left_parent_offset
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	1.000000	0.000000	0.000000
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	hand_left_rotation_transform
+	parent	hand_left_translation
+	RTinMatrix	1
+	RT
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	-1.000000	0.000000	0.000000
+		1.000000	0.000000	-0.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+	rotations	xz
+	rangesQ 
+		-1.200000	1.200000
+		-1.000000	1.396260
+
+endsegment
+
+
+
+segment	hand_left_reset_axis
+	parent	hand_left_rotation_transform
+	RTinMatrix	1
+	RT
+		0.000000	0.000000	1.000000	0.000000
+		0.000000	-1.000000	0.000000	0.000000
+		1.000000	0.000000	0.000000	0.000000
+		0.000000	0.000000	0.000000	1.000000
+endsegment
+
+
+
+segment	hand_left
+	parent	hand_left_reset_axis
+	RTinMatrix	1
+	RT
+		1.000000	0.000000	0.000000	-0.000000
+		0.000000	1.000000	0.000000	-0.000000
+		0.000000	0.000000	1.000000	-0.000000
+		0.000000	0.000000	0.000000	1.000000
+	mass	0.40540800536792315
+	CenterOfMass	0.000000	-0.074397	0.000000
+	inertia
+		0.000944	0.000000	0.000000
+		0.000000	0.000579	0.000000
+		0.000000	0.000000	0.001417
+endsegment
+
+marker	Index_Base
+	parent	hand_left
+	position	0.02080794	-0.08165543	-0.02736262
+	technical	1
+	anatomical	0
+endmarker
+marker	Little_Base
+	parent	hand_left
+	position	-0.04420864	-0.08363654	-0.01724489
+	technical	1
+	anatomical	0
+endmarker
+marker	Hand_Top
+	parent	hand_left
+	position	-0.01149635	-0.04167798	-0.02259448
+	technical	1
+	anatomical	0
+endmarker
+
+
+
+// --------------------------------------------------------------
+// MUSCLES
+// --------------------------------------------------------------
+
+musclegroup	thorax_to_scapula_left
+	OriginParent	thorax
+	InsertionParent	scapula_left
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	TrapeziusScapula_M
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_scapula_left
+	originposition	-0.103	-0.0005	-0.0024
+	insertionposition	-0.0681	-0.0022	0.036
+	optimallength	0.0877
+	maximalforce	470.4000
+	tendonslacklength	0.0337
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	TrapeziusScapula_S
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_scapula_left
+	originposition	-0.0912	0.0549	0.0049
+	insertionposition	-0.0605	0.0074	0.024
+	optimallength	0.1194
+	maximalforce	1043.0000
+	tendonslacklength	0.0286
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	TrapeziusScapula_I
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_scapula_left
+	originposition	-0.1239	-0.1646	-0.0012
+	insertionposition	-0.0886	-0.0102	0.074
+	optimallength	0.1486
+	maximalforce	414.4000
+	tendonslacklength	0.0411
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	Rhomboideus_S
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_scapula_left
+	originposition	-0.0894	0.049	0.0024
+	insertionposition	-0.0967	-0.0247	0.102
+	optimallength	0.1124
+	maximalforce	200.2000
+	tendonslacklength	0.0171
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	Rhomboideus_I
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_scapula_left
+	originposition	-0.1106	-0.0113	0.0012
+	insertionposition	-0.1243	-0.1151	0.093
+	optimallength	0.1235
+	maximalforce	407.4000
+	tendonslacklength	0.0300
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	LevatorScapulae
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_scapula_left
+	originposition	-0.0424	0.1477	-0.0378
+	insertionposition	-0.0912	-0.0087	0.103
+	optimallength	0.1922
+	maximalforce	280.0000
+	tendonslacklength	0.0231
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	PectoralisMinor
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_scapula_left
+	originposition	0.0582	-0.1268	-0.111
+	insertionposition	0.0128	-0.0378	0.023
+	optimallength	0.1376
+	maximalforce	429.8000
+	tendonslacklength	0.0372
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+
+musclegroup	thorax_to_clavicle_left
+	OriginParent	thorax
+	InsertionParent	clavicle_left
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	TrapeziusClavicle_S
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_clavicle_left
+	originposition	-0.076	0.1463	-0.0024
+	insertionposition	-0.0352	0.0249	-0.091
+	optimallength	0.1293
+	maximalforce	201.6000
+	tendonslacklength	0.0310
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+
+musclegroup	scapula_left_to_thorax
+	OriginParent	scapula_left
+	InsertionParent	thorax
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	SerratusAnterior_I
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_thorax
+	originposition	-0.1328	-0.121	0.086
+	insertionposition	-0.0006	-0.2079	-0.1805
+	optimallength	0.1996
+	maximalforce	430.0000
+	tendonslacklength	0.0126
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	SerratusAnterior_M
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_thorax
+	originposition	-0.1206	-0.0895	0.099
+	insertionposition	0.0204	-0.093	-0.1402
+	optimallength	0.1865
+	maximalforce	508.0000
+	tendonslacklength	0.0146
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	SerratusAnterior_S
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_thorax
+	originposition	-0.0567	0.0097	0.085
+	insertionposition	-0.0348	-0.0177	-0.1207
+	optimallength	0.1148
+	maximalforce	387.8000
+	tendonslacklength	0.0121
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+
+musclegroup	scapula_left_to_humerus_left
+	OriginParent	scapula_left
+	InsertionParent	humerus_left
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	Coracobrachialis
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	0.0097	-0.0457	0.028
+	insertionposition	-0.0023	-0.1441	0.0089
+	optimallength	0.0678
+	maximalforce	648.2000
+	tendonslacklength	0.1032
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	DeltoideusScapula_P
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.0675	-0.0074	0.027
+	insertionposition	-0.0048	-0.0857	-0.006
+	optimallength	0.0979
+	maximalforce	1324.4000
+	tendonslacklength	0.0784
+	pennationangle	0.0873
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	DeltoideusScapulaPost2-P2
+	parent	scapula_left
+	muscle	DeltoideusScapula_P
+	musclegroup	scapula_left_to_humerus_left
+	position	-0.064341	-0.034918	-0.007
+endviapoint
+
+
+muscle	DeltoideusScapula_M
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.0187	0.0022	-0.008
+	insertionposition	-0.0043	-0.0999	-0.004
+	optimallength	0.0760
+	maximalforce	2597.8000
+	tendonslacklength	0.0651
+	pennationangle	0.0873
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	DeltoideusScapulaLat10-P2
+	parent	scapula_left
+	muscle	DeltoideusScapula_M
+	musclegroup	scapula_left_to_humerus_left
+	position	-0.00601	-0.007272	-0.031
+endviapoint
+
+
+muscle	TeresMajor
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.1221	-0.1267	0.072
+	insertionposition	0.0043	-0.0388	0.002
+	optimallength	0.1562
+	maximalforce	851.2000
+	tendonslacklength	0.0066
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	Infraspinatus_I
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.1159	-0.0873	0.081
+	insertionposition	-0.0171	-0.0057	-0.0248
+	optimallength	0.0721
+	maximalforce	1037.4000
+	tendonslacklength	0.0895
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	Infraspinatus_S
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.0976	-0.0348	0.087
+	insertionposition	-0.0142	0.0027	-0.0219
+	optimallength	0.0730
+	maximalforce	967.4000
+	tendonslacklength	0.0523
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	TeresMinor
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.0987	-0.0713	0.042
+	insertionposition	-0.0158	-0.0093	-0.0109
+	optimallength	0.0610
+	maximalforce	695.8000
+	tendonslacklength	0.0565
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	Subscapularis_S
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.0922	-0.0334	0.09
+	insertionposition	0.0179	-0.0002	0.0119
+	optimallength	0.0723
+	maximalforce	540.4000
+	tendonslacklength	0.0631
+	pennationangle	0.0873
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	Subscapularis_M
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.0978	-0.0592	0.075
+	insertionposition	0.0163	0.001	0.0189
+	optimallength	0.0813
+	maximalforce	609.0000
+	tendonslacklength	0.0601
+	pennationangle	0.0873
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	Subscapularis_I
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.1112	-0.1054	0.085
+	insertionposition	0.0109	-0.0034	0.0199
+	optimallength	0.0789
+	maximalforce	854.0000
+	tendonslacklength	0.0646
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	Supraspinatus_P
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.0708	-0.0015	0.049
+	insertionposition	0.0101	0.0095	-0.0199
+	optimallength	0.0625
+	maximalforce	326.2000
+	tendonslacklength	0.0264
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	Supraspinatus_A
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_humerus_left
+	originposition	-0.0573	0.0015	0.069
+	insertionposition	0.0177	0.0175	-0.0099
+	optimallength	0.0576
+	maximalforce	543.2000
+	tendonslacklength	0.0322
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+
+musclegroup	clavicle_left_to_humerus_left
+	OriginParent	clavicle_left
+	InsertionParent	humerus_left
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	DeltoideusClavicle_A
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	clavicle_left_to_humerus_left
+	originposition	-0.0267	0.0195	-0.084
+	insertionposition	0.0066	-0.1091	-0.001
+	optimallength	0.0962
+	maximalforce	707.7000
+	tendonslacklength	0.0901
+	pennationangle	0.0873
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	DeltoideusClavicle2-P2
+	parent	scapula_left
+	muscle	DeltoideusClavicle_A
+	musclegroup	clavicle_left_to_humerus_left
+	position	0.022883	-0.007106	-0.01
+endviapoint
+
+
+muscle	PectoralisMajorClavicle_S
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	clavicle_left_to_humerus_left
+	originposition	0.0054	0.0473	-0.047
+	insertionposition	0.01	-0.0418	0.003
+	optimallength	0.1111
+	maximalforce	408.8000
+	tendonslacklength	0.0143
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+
+musclegroup	thorax_to_humerus_left
+	OriginParent	thorax
+	InsertionParent	humerus_left
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	LatissimusDorsi_S
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_humerus_left
+	originposition	-0.123	-0.1422	-0.0024
+	insertionposition	0.0059	-0.0189	0.003
+	optimallength	0.2408
+	maximalforce	201.6000
+	tendonslacklength	0.0925
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	LatissimusDorsi1-P2
+	parent	thorax
+	muscle	LatissimusDorsi_S
+	musclegroup	thorax_to_humerus_left
+	position	-0.140848	-0.141934	-0.035364
+endviapoint
+
+
+muscle	LatissimusDorsi_M
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_humerus_left
+	originposition	-0.1107	-0.2652	0.0024
+	insertionposition	0.0058	-0.0408	0.001
+	optimallength	0.3139
+	maximalforce	315.0000
+	tendonslacklength	0.1117
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	LatissimusDorsi3-P2
+	parent	thorax
+	muscle	LatissimusDorsi_M
+	musclegroup	thorax_to_humerus_left
+	position	-0.131312	-0.250529	-0.031706
+endviapoint
+
+
+muscle	LatissimusDorsi_I
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_humerus_left
+	originposition	-0.0767	-0.3107	-0.111
+	insertionposition	0.0042	-0.0497	0.0
+	optimallength	0.3863
+	maximalforce	270.2000
+	tendonslacklength	0.0783
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	LatissimusDorsi6-P2
+	parent	thorax
+	muscle	LatissimusDorsi_I
+	musclegroup	thorax_to_humerus_left
+	position	-0.081936	-0.22702	-0.178041
+endviapoint
+
+
+muscle	PectoralisMajorThorax_I
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_humerus_left
+	originposition	0.0649	-0.1411	-0.0305
+	insertionposition	0.0099	-0.0298	0.0
+	optimallength	0.2019
+	maximalforce	571.2000
+	tendonslacklength	0.0474
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+muscle	PectoralisMajorThorax_M
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	thorax_to_humerus_left
+	originposition	0.0238	-0.0463	-0.0159
+	insertionposition	0.0101	-0.026	0.003
+	optimallength	0.1544
+	maximalforce	683.2000
+	tendonslacklength	0.0268
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+
+musclegroup	scapula_left_to_ulna_left
+	OriginParent	scapula_left
+	InsertionParent	ulna_left
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	TRI_long
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_ulna_left
+	originposition	-0.0532	-0.0485	0.012
+	insertionposition	-0.0437	-0.0089	0.0
+	optimallength	0.1572
+	maximalforce	629.0000
+	tendonslacklength	0.1960
+	pennationangle	0.1745
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	tric_long-P2
+	parent	humerus_left
+	muscle	TRI_long
+	musclegroup	scapula_left_to_ulna_left
+	position	-0.01969	-0.280616	0.013915
+endviapoint
+
+
+
+musclegroup	humerus_left_to_ulna_left
+	OriginParent	humerus_left
+	InsertionParent	ulna_left
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	TRI_lat
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	humerus_left_to_ulna_left
+	originposition	-0.0074	-0.0464	-0.0149
+	insertionposition	-0.0349	0.0167	0.0016
+	optimallength	0.0676
+	maximalforce	1270.0000
+	tendonslacklength	0.1930
+	pennationangle	0.1700
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	tric_lat-P2
+	parent	humerus_left
+	muscle	TRI_lat
+	musclegroup	humerus_left_to_ulna_left
+	position	-0.018847	-0.271428	0.009939
+endviapoint
+
+
+muscle	TRI_med
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	humerus_left_to_ulna_left
+	originposition	-0.0091	-0.0566	0.006
+	insertionposition	-0.0349	-0.0097	0.0016
+	optimallength	0.0423
+	maximalforce	619.0000
+	tendonslacklength	0.1207
+	pennationangle	0.1570
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	tric_med-P3
+	parent	humerus_left
+	muscle	TRI_med
+	musclegroup	humerus_left_to_ulna_left
+	position	-0.023332	-0.27444	0.009939
+endviapoint
+
+
+
+musclegroup	scapula_left_to_radius_left
+	OriginParent	scapula_left
+	InsertionParent	radius_left
+endmusclegroup
+
+ // ------ MUSCLES ------
+muscle	BIC_long
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_radius_left
+	originposition	-0.0264	-0.0176	0.018
+	insertionposition	-0.0014	-0.0699	0.0143
+	optimallength	0.1530
+	maximalforce	485.8000
+	tendonslacklength	0.2764
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	BIC_long-P2
+	parent	humerus_left
+	muscle	BIC_long
+	musclegroup	scapula_left_to_radius_left
+	position	0.012292	0.01821	-0.017891
+endviapoint
+
+
+viapoint	BIC_long-P3
+	parent	humerus_left
+	muscle	BIC_long
+	musclegroup	scapula_left_to_radius_left
+	position	0.014645	-0.033298	-0.003976
+endviapoint
+
+
+muscle	BIC_brevis
+	type	hilldegroote
+	statetype	degroote
+	musclegroup	scapula_left_to_radius_left
+	originposition	0.0111	-0.0412	0.024
+	insertionposition	0.0003	-0.0704	0.0159
+	optimallength	0.1379
+	maximalforce	693.0000
+	tendonslacklength	0.2312
+	pennationangle	0.0000
+endmuscle
+
+
+
+ // ------ VIA POINTS ------
+viapoint	BIC_brevis-P2
+	parent	humerus_left
+	muscle	BIC_brevis
+	musclegroup	scapula_left_to_radius_left
+	position	0.011348	-0.031309	0.006957
+endviapoint
+
+
+
+
+
+

@@ -17,7 +17,6 @@ except ModuleNotFoundError:
 # === Choix des frames à analyser ===
 END_FRAME   = None    # Dernière frame (None = dernière frame du fichier)
 
-
 # === 1. Markers du modèle, DANS L'ORDRE DU .bioMod ===
 MODEL_MARKERS = [
     "Ster",
@@ -89,14 +88,6 @@ def extract_relevant_markers(raw_markers, mapping):
     return raw_markers[:, indices, :]
 
 
-def numpy_markers_to_nodes(markers_frame):
-    nodes = []
-    for i in range(markers_frame.shape[1]):
-        x, y, z = markers_frame[:, i]
-        node = biorbd.NodeSegment(float(x), float(y), float(z))
-        nodes.append(node)
-    return nodes
-
 def wrap_to_180(angle_deg):
     return (np.unwrap(angle_deg) + 180) % 360 - 180
 
@@ -111,6 +102,8 @@ def extract_cycles(signal_deg, peaks):
         )
         cycles.append(cyc_norm)
     return np.array(cycles)
+
+
 
 
 def main(show=True):
@@ -140,7 +133,6 @@ def main(show=True):
 
     markers = [frame for frame in markers]  # => liste de matrices
 
-
     q_recons = np.zeros((nq, n_frames))
     qdot_recons = np.zeros((nq, n_frames))
     qddot_recons = np.zeros((nq, n_frames))
@@ -157,9 +149,12 @@ def main(show=True):
 
     print("IK Kalmann terminé.")
 
+
     q_recons[11, :] = (q_recons[11, :] + pi)%(2*pi)
     q_recons[12, :] = (-q_recons[12, :])%(2*pi)
     q_recons[13, :] = (q_recons[13, :] - pi)
+
+
 
     JOINTS = {
         "Plan élévation hum": 0,
@@ -180,6 +175,7 @@ def main(show=True):
     plt.plot(elbow_euler, label="Coude kalmann")  #--> Flexion coude
     plt.legend()
     plt.show()
+
 
     # ===========================
     # 2) Enregistrement des données
