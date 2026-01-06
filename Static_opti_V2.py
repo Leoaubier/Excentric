@@ -17,16 +17,18 @@ EMG_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/EMG/emg_processed_resampled
 # ----------------------------
 # Config
 # ----------------------------
-FIRST, END = 2000, 3000
-EPS_ACT = 1e-6
+FIRST, END = 3000, 6000
+EPS_ACT = 1e-4 # éviter une activation à 0 ou 1
 
 TAU_RES_BND = 5.0  # ±5 Nm as in Ceglia et al.
 
 # Suggested starting weights (tune)
-W_TAU = 5e3        # torque tracking
-W_RES = 1e2        # residual torque penalty
-W_EMG = 20.0       # EMG tracking
-W_ACT = 1e-3       # activation penalty for non-EMG muscles
+
+W_EMG = 100      # EMG tracking
+W_ACT = 10       # activation penalty for non-EMG muscles
+W_TAU = 100      # torque tracking
+W_RES = 10        # residual torque penalty
+
 
 QP_SOLVER = "qpoases"  # fallback to osqp below
 
@@ -74,6 +76,47 @@ def _maybe_transpose_frames_match(arr: np.ndarray, n_frames: int, name: str) -> 
 # ----------------------------
 # EMG mapping (substring matching)
 # ----------------------------
+
+def check_emg_feasibility_post_opt(R_musc, Fiso_musc, mus_act, tau, track_idx, tracked_names, tol=1e-3):
+    """
+    Vérifie si les muscles EMG optimisés sont physiquement réalisables.
+
+    R_musc : (nbTau, nbMus, n_frames)
+    Fiso_musc : (nbMus, n_frames)
+    mus_act : (nbMus, n_frames)
+    tau : (nbTau, n_frames)
+    track_idx : indices des muscles EMG
+    tracked_names : noms des muscles EMG
+    tol : tolérance numérique
+    """
+    nbTau, nbMus, n_frames = R_musc.shape
+    infeasible = np.zeros((len(track_idx), n_frames), dtype=bool)
+
+    for k in range(n_frames):
+        tauk = tau[:, k]
+        for i, mus_idx in enumerate(track_idx):
+            a = mus_act[mus_idx, k]
+            Fiso = Fiso_musc[mus_idx, k]
+            R_col = R_musc[:, mus_idx, k]
+
+            # Force musculaire réelle
+            F_mus = a * Fiso
+            # Torque que ce muscle peut générer sur toutes les DoFs
+            tau_possible = np.abs(R_col) * F_mus
+
+            # Si ce muscle ne peut pas contribuer assez pour le tau demandé sur AU MOINS un DoF
+            if np.any(tau_possible + tol < np.abs(tauk)):
+                infeasible[i, k] = True
+
+    # Affichage résumé
+    for i, mus_idx in enumerate(track_idx):
+        n_bad = np.sum(infeasible[i, :])
+        if n_bad > 0:
+            print(f"Muscle EMG {i:2d}: {tracked_names[i]:30s} impossible à suivre sur {n_bad}/{n_frames} frames")
+
+    return infeasible
+
+
 def build_emg_to_muscle_mapping(model: biorbd.Model, emg_to_muscle_dict: dict, verbose=True):
     muscle_names = [model.muscle(i).name().to_string() for i in range(model.nbMuscles())]
     sorted_items = sorted(emg_to_muscle_dict.items(), key=lambda x: x[0])
@@ -104,19 +147,21 @@ def build_emg_to_muscle_mapping(model: biorbd.Model, emg_to_muscle_dict: dict, v
 # ----------------------------
 # Biorbd quantities
 # ----------------------------
-def get_moment_arms_and_fmax(model, q):
-    q = np.asarray(q).reshape(-1)
-    nb_q = model.nbQ()
+
+def get_R_and_Fiso(model, q):
     nb_mus = model.nbMuscles()
 
-    J = model.musclesLengthJacobian(q).to_array()  # (nbMus, nbQ)
-    if J.shape != (nb_mus, nb_q):
-        raise RuntimeError(f"Jacobian shape {J.shape}, expected {(nb_mus, nb_q)}")
+    # Jacobien des longueurs musculaires
+    J = model.musclesLengthJacobian(q).to_array()   # (nbMus, nbQ)
+    R = -J.T                                        # (nbQ, nbMus)
 
-    R = -J.T  # (nbQ, nbMus)
+    # Force isométrique maximale (bornée, physiologique)
+    Fiso = np.array(
+        [model.muscle(i).characteristics().forceIsoMax() for i in range(nb_mus)],
+        dtype=float
+    )
+    return R, Fiso
 
-    Fmax = np.array([model.muscle(i).characteristics().forceIsoMax() for i in range(nb_mus)], dtype=float)
-    return R, Fmax
 
 def compute_muscle_forces_from_activation(model: biorbd.Model, q: np.ndarray, qdot: np.ndarray, a: np.ndarray):
     a = np.asarray(a, dtype=float).reshape(-1)
@@ -243,7 +288,7 @@ def main():
     emg_env = np.load(EMG_PATH)
 
     # EMG 0..100 -> 0..1
-    emg_env = np.clip(emg_env / 100.0, 0.0, 1.0)
+    emg_env = np.clip(emg_env, 0.0, 1.0)
 
     # Shapes
     q = _maybe_transpose_to_dof_by_frames(q, nbQ, "q")
@@ -272,23 +317,28 @@ def main():
 
     # All tracked muscles have EMG (because they come from mapping) -> mask = 1
     # If you later decide to include more muscles without EMG, set those entries to 0
-    is_emg_mask = np.ones((nbTrackedMus,), dtype=float)
+    # is_emg_mask = 1 uniquement pour les muscles réellement associés à un EMG
+    is_emg_mask_full = np.zeros(nbMus, dtype=float)
+    is_emg_mask_full[track_idx] = 1.0  # seulement les muscles avec EMG
 
     # Solver
-    solver = build_ceglia_solver_with_p(nbTrackedMus, nbTau, qp_solver_name=QP_SOLVER)
+    solver = build_ceglia_solver_with_p(nbMus, nbTau, qp_solver_name=QP_SOLVER)
 
     # Outputs
-    mus_act = np.zeros((nbTrackedMus, n_frames))
+    mus_act = np.zeros((nbMus, n_frames))
     tau_res = np.zeros((nbTau, n_frames))
     tau_err = np.zeros((nbTau, n_frames))
     mus_force = np.zeros((nbMus, n_frames))
-    emg_used = np.zeros((nbTrackedMus, n_frames))
+    emg_used = np.zeros((nbMus, n_frames))
+    Fiso_musc = np.zeros((nbMus, n_frames))
+    R_musc = np.zeros((nbTau,nbMus, n_frames))
+
 
     # Floating base: zero first 6 dof if needed
     if nbQ == 18:
-        q[:6, :] = 0.0
-        qdot[:6, :] = 0.0
-        tau[:6, :] = 0.0
+    #    q[:6, :] = 0.0
+    #    qdot[:6, :] = 0.0
+        tau[:8, :] = 0.0
 
     t0 = time.time()
     for k in range(n_frames):
@@ -297,22 +347,22 @@ def main():
         tauk = tau[:, k].reshape(-1)
 
         # Build A
-        R, Fmax = get_moment_arms_and_fmax(model, qk)
-        R_tr = R[:, track_idx]                         # (nbTau, nbTrackedMus)
-        F_tr = Fmax[track_idx]                         # (nbTrackedMus,)
-        A = R_tr * F_tr.reshape(1, -1)                 # (nbTau, nbTrackedMus)
+        R, Fiso = get_R_and_Fiso(model, qk)
 
-        # EMG duplicated per tracked muscle
+        A = R * Fiso.reshape(1, -1)
+
+        # EMG seulement pour les muscles mappés
+        emg_full = np.zeros(nbMus)
         emgk = emg_env[:, k].reshape(-1)
-        emg_tr = emgk[emg_src_idx]
+        emg_full[track_idx] = emgk[emg_src_idx]
 
         # Solve Ceglia QP
         a_tr, tau_res_tr = run_ceglia_frame(
             solver=solver,
             A_np=A,
             tau_np=tauk,
-            emg_np=emg_tr,
-            is_emg_mask_np=is_emg_mask,
+            emg_np=emg_full,
+            is_emg_mask_np=is_emg_mask_full,
             w_tau_val=W_TAU,
             w_res_val=W_RES,
             w_emg_val=W_EMG,
@@ -321,19 +371,25 @@ def main():
 
         # Compute errors
         tau_m = A @ a_tr
+
+        print("Max |R|      :", np.max(np.abs(R)))
+        print("Max f_tr    :", np.max(np.abs(Fiso)))
+        print("Max |A|     :", np.max(np.abs(A)))
+        print("Max |tau_m| :", np.max(np.abs(A @ a_tr)))
+        print("Max |tau|   :", np.max(np.abs(tauk)))
+
         tau_err_k = tauk - (tau_m + tau_res_tr)  # should be small when W_TAU high
 
-        # Full activations for force computation
-        a_full = np.zeros((nbMus,), dtype=float)
-        a_full[track_idx] = a_tr
-        f_full = compute_muscle_forces_from_activation(model, qk, qdotk, a_full)
+        f_full = compute_muscle_forces_from_activation(model, qk, qdotk, a_tr)
 
         # Save
         mus_act[:, k] = a_tr
         tau_res[:, k] = tau_res_tr
         tau_err[:, k] = tau_err_k
         mus_force[:, k] = f_full
-        emg_used[:, k] = emg_tr
+        emg_used[:, k] = emg_full
+        Fiso_musc[:, k] = Fiso
+        R_musc[:, :, k] = R
 
         if (k + 1) % 200 == 0:
             print(f"Frame {k+1}/{n_frames} done.")
@@ -343,8 +399,17 @@ def main():
     print(f"Total time: {total:.3f} s")
 
     # ----------------------------
-    # Diagnostics plots
+    # Plots
     # ----------------------------
+    infeasible_emg = check_emg_feasibility_post_opt(
+        R_musc=R_musc,
+        Fiso_musc=Fiso_musc,
+        mus_act=mus_act,
+        tau=tau,
+        track_idx=track_idx,
+        tracked_names=tracked_names
+    )
+
     err_mean = np.mean(np.abs(tau_err), axis=1)
     res_mean = np.mean(np.abs(tau_res), axis=1)
 
@@ -366,10 +431,13 @@ def main():
     plt.tight_layout()
     plt.show()
 
+    mus_act_emg = np.zeros((nbTrackedMus,n_frames))
+    for i, idx in enumerate(track_idx):
+        mus_act_emg[i, :] = mus_act[i, :]
     plt.figure(figsize=(14, 6))
     for i in range(nbTrackedMus):
-        plt.plot(mus_act[i, :], label=f"{i}: {tracked_names[i]}")
-    plt.title("Activations musculaires (Ceglia EMG-informed SO)")
+        plt.plot(mus_act_emg[i, :], label=f"{i}: {tracked_names[i]}")
+    plt.title("Activations musculaires")
     plt.xlabel("Frame")
     plt.ylabel("Activation")
     plt.grid(True)
@@ -377,7 +445,75 @@ def main():
     plt.tight_layout()
     plt.show()
 
-    # Return results if you want to save
+
+    all_muscle_names = [model.muscle(i).name().to_string() for i in range(model.nbMuscles())]
+
+    print("Activations par muscle (min / max) :")
+    for i in range(mus_act.shape[0]):
+        min_a = np.min(mus_act[i, :])
+        max_a = np.max(mus_act[i, :])
+        print(f"{i:2d} : {all_muscle_names[i]:30s} -> min={min_a:.4f}, max={max_a:.4f}")
+
+    print("Fiso (min / max) :")
+    for i in range(mus_act.shape[0]):
+        min_Fiso = np.min(Fiso_musc[i, :])
+        max_Fiso = np.max(Fiso_musc[i, :])
+        print(f"{i:2d} : {all_muscle_names[i]:30s} -> min={min_Fiso:.4f}, max={max_Fiso:.4f}")
+
+    print("R (min / max) :")
+    for i in range(mus_act.shape[0]):
+        min_R = np.min(R_musc[:, i, :])
+        max_R = np.max(R_musc[:, i, :])
+        print(f"{i:2d} : {all_muscle_names[i]:30s} -> min={min_R:.4f}, max={max_R:.4f}")
+
+    plt.figure(figsize=(14, 6))
+    for i in range(nbMus):
+        plt.plot(mus_act[i, :], label=f"{i}: {all_muscle_names[i]}")
+    plt.title("Activations musculaires")
+    plt.xlabel("Frame")
+    plt.ylabel("Activation")
+    plt.grid(True)
+    plt.legend(ncol=2, fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(14, 6))
+    for i in range(nbMus):
+        plt.plot(mus_force[i, :], label=f"{i}: {all_muscle_names[i]}")
+    plt.title("Forces musculaires")
+    plt.xlabel("Frame")
+    plt.ylabel("Force en N")
+    plt.grid(True)
+    plt.legend(ncol=2, fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(14, 6))
+
+    for i, name in enumerate(tracked_names):
+        emg_ch = emg_src_idx[i]  # ✅ canal EMG correspondant à ce muscle
+
+        plt.plot(
+            mus_act_emg[i, :],
+            label=f"Activation {name}"
+        )
+
+        plt.plot(
+            emg_env[emg_ch,:],
+            '--',
+            label=f"EMG ch{emg_ch}"
+        )
+
+    plt.xlabel("Frame")
+    plt.ylabel("Activation / EMG")
+    plt.title("Activations musculaires vs EMG")
+    plt.grid(True)
+    plt.legend(ncol=2, fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+
+    # Return results
     return {
         "mus_act": mus_act,
         "tau_res": tau_res,

@@ -1,4 +1,5 @@
 #env conda biomech_env
+from cProfile import label
 from pathlib import Path
 import ezc3d
 import numpy as np
@@ -7,6 +8,9 @@ import matplotlib.pyplot as plt
 import biorbd
 
 import numpy as np
+
+from pyomeca import Analogs
+
 
 def resample_emg_to_100hz(emg, target_fs=100):
     """
@@ -141,7 +145,7 @@ emg_processed = (
     .meca.normalize(mvc_ref) #à normaliser à partir de la MVC
 )
 
-emg_processed_resampled = resample_emg_to_100hz(emg_processed)
+emg_processed_resampled = resample_emg_to_100hz(emg_processed)/100 #entre 0 et 1
 emg_resampled = resample_emg_to_100hz(emg)
 
 n_channels = emg_processed_resampled.shape[0]

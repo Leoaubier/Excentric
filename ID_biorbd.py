@@ -128,7 +128,10 @@ def main():
 
     # ----------- Paramètres utilisateur -----------
     print(dof_name)
-    DOF_TO_PLOT = ['thorax_rotation_transform_RotX',
+    DOF_TO_PLOT = [#'thorax_translation_TransX',
+                   #'thorax_translation_TransY',
+                   # 'thorax_translation_TransZ',
+                   'thorax_rotation_transform_RotX',
                    'thorax_rotation_transform_RotY',
                    'thorax_rotation_transform_RotZ',
                    'thorax_offset_sternoclavicular_left_r1_RotX',
@@ -143,7 +146,7 @@ def main():
                    'ulna_left_offset_pro_sup_left_RotY',
                    'hand_left_rotation_transform_RotX',
                    'hand_left_rotation_transform_RotZ'
-                   ]  # soit "ALL", soit ["dof1", "dof2", ...]
+                   ]  # soit "ALL
     START = 3000  # frame de début (ex : 2000)
     END = 5000  # frame de fin
 
