@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 import biorbd
 import matplotlib.pyplot as plt
+from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
 #
@@ -28,6 +29,7 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
     current_file_dir = Path(__file__).parent
     model = biorbd.Biorbd(model_path)
     force = np.load(force_path)
+    force_pedal = np.load(force_pedal_path)
 
     nq = model.nb_q
     print("DoF du modèle :", nq)
@@ -47,9 +49,15 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
     tau = np.zeros((nq, int(q_recons.shape[1])))
 
     origin = np.zeros((3, q_recons.shape[1]))
+    origin_hand = np.zeros((3, q_recons.shape[1]))
+
     #print(origin.shape)
     q_pedal = np.load(q_pedal_path)
     mod_ped = biorbd.Biorbd(model_pedal_path)
+
+    force_pedal_hand = np.zeros((3, q_recons.shape[1]))
+    moment_pedal_hand = np.zeros((3, q_recons.shape[1]))
+
 
     point_app = np.zeros(3) #point d'application dans le repère pédale
 
@@ -57,28 +65,36 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
 
         jcs_pedal = mod_ped.segments["Pedal_left"].frame(q_pedal[:, i])
         jcs_hand = model.segments["hand_left"].frame(q_recons[:, i])
-        jcs_hand_pedal = jcs_hand.T @ jcs_pedal
-        #print(jcs_pedal_hand.to_array())
-        R = jcs_hand_pedal[:3, :3] # matrice 3×3
-        t = jcs_hand_pedal[3,:3]  # vecteur 3×1
-        #origin[:,i] = R @ point_app + t #dans le referentiel de la main
+
+        R_hand = jcs_hand[:3,:3]
+        t_hand = jcs_hand[:3,3]
+
+        R_pedal = jcs_pedal[:3,:3]
+        t_pedal = jcs_pedal[:3,3]
+
+        origin_hand[:,i] = R_hand.T @ (R_pedal @ point_app + t_pedal - t_hand)
         origin[:, i] = jcs_pedal[:3, :3] @ point_app + jcs_pedal[:3, 3] #dans le ref global
-        #print(origin)
+
 
         #force_pedal_hand[:,i] = R @ force_pedal[1,:,i]
         #moment_pedal_hand[:,i] = R @ force_pedal[0,:,i] + np.cross(t, force_pedal[1,:,i])
     force_conca = -np.concatenate((force[0, :, :], force[1, :, :]), axis=0)
+    #force_pedal_conca = -np.concatenate((force_pedal[0, :, :], force_pedal[1, :, :]), axis=0)
+
 
     plt.plot(origin[0,:], label='x')
     plt.plot(origin[1, :], label='y')
     plt.plot(origin[2, :], label='z')
+    plt.plot(origin_hand[0, :], label='x_hand')
+    plt.plot(origin_hand[1, :], label='y_hand')
+    plt.plot(origin_hand[2, :], label='z_hand')
     plt.legend()
     plt.show()
 
     #------ Derive
 
 
-    #force_pedal_conca = -np.concatenate((moment_pedal_hand, force_pedal_hand), axis=0)
+    force_pedal_conca = -np.concatenate((moment_pedal_hand, force_pedal_hand), axis=0)
     for i in range(q_recons.shape[1]):
         q = q_recons[:,i]
         qdot = qdot_filt[:,i]
@@ -88,11 +104,10 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
         model.external_force_set.reset()
         # Proceed with the inverse dynamics
         model.external_force_set.add(segment_name="hand_left", force=force_conca[:,i],
-                                      point_of_application = origin[:,i], frame_of_reference= biorbd.ExternalForceSet.Frame.WORLD)  # --> sur le segment, point d'app et force dans le repere global
+                                      point_of_application = origin_hand[:,i], frame_of_reference= biorbd.ExternalForceSet.Frame.WORLD)  # --> sur le segment, point d'app et force dans le repere global
         #model.external_force_set.add(segment_name="hand_left", force=force_pedal_conca[:, i],
-        #                             point_of_application=origin[:, i],
-        #                             frame_of_reference=biorbd.ExternalForceSet.Frame.LOCAL)  # --> sur le segment, point d'app et force dans le repere global
-
+        #                             point_of_application= origin_hand[:,i], frame_of_reference= biorbd.ExternalForceSet.Frame.LOCAL)  # --> sur le segment, point d'app et force dans le repere global
+        #
         tau[:,i] = model.inverse_dynamics(q, qdot, qddot)
         #print(f"Inverse dynamics tau: {tau}")
 
