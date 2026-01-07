@@ -3,11 +3,12 @@ import time
 import biorbd
 import casadi as ca
 import matplotlib.pyplot as plt
+from scipy.signal import find_peaks
 
 # ----------------------------
 # Paths
 # ----------------------------
-MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
+MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche.bioMod"
 
 Q_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy"
 QDOT_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_sidonie_40W.npy"
@@ -20,17 +21,21 @@ EMG_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/EMG/emg_processed_resampled
 FIRST, END = 3000, 6000
 EPS_ACT = 1e-4 # éviter une activation à 0 ou 1
 
-TAU_RES_BND = 5.0  # ±5 Nm as in Ceglia et al.
+TAU_RES_BND = 0.0  # ±5 Nm as in Ceglia et al.
 
 # Suggested starting weights (tune)
 
-W_EMG = 100      # EMG tracking
-W_ACT = 10       # activation penalty for non-EMG muscles
-W_TAU = 100      # torque tracking
-W_RES = 10        # residual torque penalty
+W_EMG = 0    # EMG tracking
+W_ACT = 0       # activation penalty for non-EMG muscles
+W_TAU = 1  # torque tracking
+W_RES = 0       # residual torque penalty
+
+#active_dof = [6,7,8,9,10,11,12,13,14,15]
+active_dof = [6,7,8,9,10,11,12,13,14,15]
 
 
 QP_SOLVER = "qpoases"  # fallback to osqp below
+
 
 # ----------------------------
 # EMG -> muscle mapping
@@ -74,48 +79,8 @@ def _maybe_transpose_frames_match(arr: np.ndarray, n_frames: int, name: str) -> 
     raise ValueError(f"{name} frames mismatch: {arr.shape} vs n_frames={n_frames}")
 
 # ----------------------------
-# EMG mapping (substring matching)
+# EMG mapping
 # ----------------------------
-
-def check_emg_feasibility_post_opt(R_musc, Fiso_musc, mus_act, tau, track_idx, tracked_names, tol=1e-3):
-    """
-    Vérifie si les muscles EMG optimisés sont physiquement réalisables.
-
-    R_musc : (nbTau, nbMus, n_frames)
-    Fiso_musc : (nbMus, n_frames)
-    mus_act : (nbMus, n_frames)
-    tau : (nbTau, n_frames)
-    track_idx : indices des muscles EMG
-    tracked_names : noms des muscles EMG
-    tol : tolérance numérique
-    """
-    nbTau, nbMus, n_frames = R_musc.shape
-    infeasible = np.zeros((len(track_idx), n_frames), dtype=bool)
-
-    for k in range(n_frames):
-        tauk = tau[:, k]
-        for i, mus_idx in enumerate(track_idx):
-            a = mus_act[mus_idx, k]
-            Fiso = Fiso_musc[mus_idx, k]
-            R_col = R_musc[:, mus_idx, k]
-
-            # Force musculaire réelle
-            F_mus = a * Fiso
-            # Torque que ce muscle peut générer sur toutes les DoFs
-            tau_possible = np.abs(R_col) * F_mus
-
-            # Si ce muscle ne peut pas contribuer assez pour le tau demandé sur AU MOINS un DoF
-            if np.any(tau_possible + tol < np.abs(tauk)):
-                infeasible[i, k] = True
-
-    # Affichage résumé
-    for i, mus_idx in enumerate(track_idx):
-        n_bad = np.sum(infeasible[i, :])
-        if n_bad > 0:
-            print(f"Muscle EMG {i:2d}: {tracked_names[i]:30s} impossible à suivre sur {n_bad}/{n_frames} frames")
-
-    return infeasible
-
 
 def build_emg_to_muscle_mapping(model: biorbd.Model, emg_to_muscle_dict: dict, verbose=True):
     muscle_names = [model.muscle(i).name().to_string() for i in range(model.nbMuscles())]
@@ -147,13 +112,24 @@ def build_emg_to_muscle_mapping(model: biorbd.Model, emg_to_muscle_dict: dict, v
 # ----------------------------
 # Biorbd quantities
 # ----------------------------
+def extract_cycles_generic(signal, peaks):
+    out = []
+    for i in range(len(peaks) - 1):
+        seg = signal[peaks[i]:peaks[i + 1]]
+        seg_norm = np.interp(
+            np.linspace(0, 1, 200),
+            np.linspace(0, 1, len(seg)),
+            seg
+        )
+        out.append(seg_norm)
+    return np.array(out)
 
 def get_R_and_Fiso(model, q):
     nb_mus = model.nbMuscles()
 
     # Jacobien des longueurs musculaires
     J = model.musclesLengthJacobian(q).to_array()   # (nbMus, nbQ)
-    R = -J.T                                        # (nbQ, nbMus)
+    R = -J.T                                        # (nbQ, nbMus) --> -J normalement
 
     # Force isométrique maximale (bornée, physiologique)
     Fiso = np.array(
@@ -211,7 +187,7 @@ def build_ceglia_solver_with_p(nb_mus: int, nb_tau: int, qp_solver_name=QP_SOLVE
     tau_err = tau - (tau_m + tau_res)
 
     # EMG term only for muscles with EMG
-    emg_err = (a - emg) * is_emg
+    emg_err = (emg - a) * is_emg
 
     # activation regularization only for muscles WITHOUT EMG
     a_ninf = a * (1 - is_emg)
@@ -273,8 +249,10 @@ def main():
     model = biorbd.Model(MODEL_PATH)
 
     nbQ = model.nbQ()
-    nbTau = model.nbGeneralizedTorque()
+    #nbTau = model.nbGeneralizedTorque()
+    nbTau = len(active_dof)
     nbMus = model.nbMuscles()
+
 
     print("Model loaded.")
     print(f"  nbQ   = {nbQ}")
@@ -302,7 +280,7 @@ def main():
 
     q = q[:, FIRST:END]
     qdot = qdot[:, FIRST:END]
-    tau = tau[:, FIRST:END]
+    tau = tau[active_dof, FIRST:END]
     emg_env = emg_env[:, FIRST:END]
     n_frames = q.shape[1]
     print(f"Data windowed: nFrames={n_frames}")
@@ -332,13 +310,7 @@ def main():
     emg_used = np.zeros((nbMus, n_frames))
     Fiso_musc = np.zeros((nbMus, n_frames))
     R_musc = np.zeros((nbTau,nbMus, n_frames))
-
-
-    # Floating base: zero first 6 dof if needed
-    if nbQ == 18:
-    #    q[:6, :] = 0.0
-    #    qdot[:6, :] = 0.0
-        tau[:8, :] = 0.0
+    tau_act = np.zeros((nbTau, n_frames))
 
     t0 = time.time()
     for k in range(n_frames):
@@ -349,7 +321,8 @@ def main():
         # Build A
         R, Fiso = get_R_and_Fiso(model, qk)
 
-        A = R * Fiso.reshape(1, -1)
+        A_all = R * Fiso.reshape(1, -1)
+        A = A_all[active_dof, :]
 
         # EMG seulement pour les muscles mappés
         emg_full = np.zeros(nbMus)
@@ -384,12 +357,13 @@ def main():
 
         # Save
         mus_act[:, k] = a_tr
+        tau_act[:, k] = tau_m
         tau_res[:, k] = tau_res_tr
         tau_err[:, k] = tau_err_k
         mus_force[:, k] = f_full
         emg_used[:, k] = emg_full
         Fiso_musc[:, k] = Fiso
-        R_musc[:, :, k] = R
+        R_musc[:, :, k] = R[active_dof]
 
         if (k + 1) % 200 == 0:
             print(f"Frame {k+1}/{n_frames} done.")
@@ -398,20 +372,15 @@ def main():
     print("\nDone.")
     print(f"Total time: {total:.3f} s")
 
+    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/statique/muscle_activations.npy", mus_act)
+    print("activations save")
     # ----------------------------
     # Plots
     # ----------------------------
-    infeasible_emg = check_emg_feasibility_post_opt(
-        R_musc=R_musc,
-        Fiso_musc=Fiso_musc,
-        mus_act=mus_act,
-        tau=tau,
-        track_idx=track_idx,
-        tracked_names=tracked_names
-    )
 
-    err_mean = np.mean(np.abs(tau_err), axis=1)
-    res_mean = np.mean(np.abs(tau_res), axis=1)
+
+    err_mean = np.mean(tau_err, axis=1)
+    res_mean = np.mean(tau_res, axis=1)
 
     plt.figure(figsize=(10, 4))
     plt.bar(np.arange(nbTau), err_mean)
@@ -433,7 +402,7 @@ def main():
 
     mus_act_emg = np.zeros((nbTrackedMus,n_frames))
     for i, idx in enumerate(track_idx):
-        mus_act_emg[i, :] = mus_act[i, :]
+        mus_act_emg[i, :] = mus_act[idx, :]
     plt.figure(figsize=(14, 6))
     for i in range(nbTrackedMus):
         plt.plot(mus_act_emg[i, :], label=f"{i}: {tracked_names[i]}")
@@ -512,8 +481,141 @@ def main():
     plt.tight_layout()
     plt.show()
 
+    import plotly.graph_objects as go
 
+    fig = go.Figure()
+
+    for i in range(nbTau):
+        # tau
+        fig.add_trace(
+            go.Scatter(
+                y=tau[i, :],
+                mode="lines",
+                name=f"{i}: (tau)",
+                legendgroup=f"group_{i}"
+            )
+        )
+
+        # tau_res
+        fig.add_trace(
+            go.Scatter(
+                y=tau_res[i, :],
+                mode="lines",
+                name=f"{i}: tau_res",
+                legendgroup=f"group_{i}",
+                line=dict(dash="dash")
+            )
+        )
+
+        # tau_err
+        fig.add_trace(
+            go.Scatter(
+                y=tau_act[i, :],
+                mode="lines",
+                name=f"{i}: tau_act",
+                legendgroup=f"group_{i}",
+                line=dict(dash="dot")
+            )
+        )
+
+    fig.update_layout(
+        title="Couples articulaires : tau, tau_res, tau_err",
+        xaxis_title="Frame",
+        yaxis_title="Couple (N·m)",
+        hovermode="x unified",
+        legend=dict(
+            itemclick="toggle",
+            itemdoubleclick="toggleothers"
+        ),
+        template="plotly_white",
+        height=500
+    )
+
+    fig.show()
     # Return results
+
+    #---------- Plot final -----------
+    # ==========================================================
+    # DÉTECTION DES CYCLES À PARTIR D’UN DOF DE RÉFÉRENCE
+    # ==========================================================
+
+    # Choix automatique d’un DOF de référence pour détecter les cycles
+    ref_idx = 0 #8 si les 10 DoF
+
+    print(f"DoF utilisé comme référence du cycle : coude flexion")
+
+    # Signal de référence
+    ref_signal = tau[ref_idx, :]
+
+    # Détection des peaks
+    peaks_sel, _ = find_peaks(ref_signal, distance=100)
+
+    print("Nombre de cycles détectés :", len(peaks_sel) - 1)
+    # ==========================================================
+    # === SUBPLOT : COUPLES / FORCES PAR DOF SUR LE CYCLE ===
+    # =========================================================
+    MUSC_TO_PLOT = "ALL"
+    # ----------- Sélection DoF à tracer ------------
+    if MUSC_TO_PLOT == "ALL":
+        selected_musc = all_muscle_names
+    else:
+        selected_musc = MUSC_TO_PLOT
+
+    # ----------- Construction cycles τ par DoF --------
+    cycles_tau = {}
+    mean_tau = {}
+    std_tau = {}
+
+    for dof in selected_musc:
+        idx = all_muscle_names.index(dof)
+        cyc = extract_cycles_generic(mus_act[idx, :], peaks_sel)
+        cycles_tau[dof] = cyc
+        mean_tau[dof] = np.mean(cyc, axis=0)
+        std_tau[dof] = np.std(cyc, axis=0)
+    # ----------- Plot final : GRILLE DE SUBPLOTS -------------------------
+
+    import math
+
+    x = np.linspace(0, 100, 200)
+
+    # Définition automatique d'une grille
+    n_cols = math.ceil(math.sqrt(nbMus))
+    n_rows = math.ceil(nbMus / n_cols)
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 3 * n_rows), sharex=True)
+    axes = axes.flatten()  # pour parcourir facilement
+
+    for ax, dof in zip(axes, all_muscle_names):
+
+        # cycles individuels
+        for c in cycles_tau[dof]:
+            ax.plot(x, c, color="gray", alpha=0.25)
+
+        # moyenne
+        ax.plot(x, mean_tau[dof], linewidth=2, color="blue")
+
+        # écart-type
+        ax.fill_between(
+            x,
+            mean_tau[dof] - std_tau[dof],
+            mean_tau[dof] + std_tau[dof],
+            color="blue",
+            alpha=0.15
+        )
+
+        ax.set_title(dof, fontsize=8)
+        ax.set_ylabel("Activation")
+        ax.grid(True)
+
+    # Supprimer les axes inutilisés si la grille est trop grande
+    for i in range(len(selected_musc), len(axes)):
+        fig.delaxes(axes[i])
+
+    # Label global
+    plt.xlabel("Cycle (%)")
+    plt.tight_layout()
+    plt.show()
+
     return {
         "mus_act": mus_act,
         "tau_res": tau_res,

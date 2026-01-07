@@ -29,7 +29,7 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
     current_file_dir = Path(__file__).parent
     model = biorbd.Biorbd(model_path)
     force = np.load(force_path)
-    force_pedal = np.load(force_pedal_path)
+    #force_pedal = np.load(force_pedal_path)
 
     nq = model.nb_q
     print("DoF du modèle :", nq)
@@ -43,9 +43,9 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
     dt = 1 / fs
     b, a = butter(4, cutoff / (fs / 2), btype='low')
     qdot_filt = filtfilt(b, a, qdot_recons, axis=1)
-
     qddot_recons = np.load(qddot_path)
     qddot_filt = filtfilt(b, a, qddot_recons, axis=1)
+
     tau = np.zeros((nq, int(q_recons.shape[1])))
 
     origin = np.zeros((3, q_recons.shape[1]))
