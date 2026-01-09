@@ -8,7 +8,7 @@ from scipy.signal import find_peaks
 # ----------------------------
 # Paths
 # ----------------------------
-MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche.bioMod"
+MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.BioMod"
 
 Q_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy"
 QDOT_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_sidonie_40W.npy"
@@ -21,17 +21,17 @@ EMG_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/EMG/emg_processed_resampled
 FIRST, END = 3000, 6000
 EPS_ACT = 1e-4 # éviter une activation à 0 ou 1
 
-TAU_RES_BND = 0.0  # ±5 Nm as in Ceglia et al.
+TAU_RES_BND = 0.1  # ±5 Nm as in Ceglia et al.
 
-# Suggested starting weights (tune)
 
 W_EMG = 0    # EMG tracking
-W_ACT = 0       # activation penalty for non-EMG muscles
-W_TAU = 1  # torque tracking
-W_RES = 0       # residual torque penalty
+W_ACT = 10000000    # activation penalty for non-EMG muscles
+W_TAU = 10000000  # torque tracking
+W_RES = 1       # residual torque penalty
 
 #active_dof = [6,7,8,9,10,11,12,13,14,15]
-active_dof = [6,7,8,9,10,11,12,13,14,15]
+active_dof = [8,9,10,11,12,13,14]
+
 
 
 QP_SOLVER = "qpoases"  # fallback to osqp below
@@ -127,6 +127,7 @@ def extract_cycles_generic(signal, peaks):
 def get_R_and_Fiso(model, q):
     nb_mus = model.nbMuscles()
 
+
     # Jacobien des longueurs musculaires
     J = model.musclesLengthJacobian(q).to_array()   # (nbMus, nbQ)
     R = -J.T                                        # (nbQ, nbMus) --> -J normalement
@@ -136,6 +137,7 @@ def get_R_and_Fiso(model, q):
         [model.muscle(i).characteristics().forceIsoMax() for i in range(nb_mus)],
         dtype=float
     )
+
     return R, Fiso
 
 
@@ -190,8 +192,8 @@ def build_ceglia_solver_with_p(nb_mus: int, nb_tau: int, qp_solver_name=QP_SOLVE
     emg_err = (emg - a) * is_emg
 
     # activation regularization only for muscles WITHOUT EMG
-    a_ninf = a * (1 - is_emg)
-
+    #a_ninf = a * (1 - is_emg)
+    a_ninf = a #car wemg est à 0
     cost = (
         w_tau * ca.sumsqr(tau_err)
         + w_res * ca.sumsqr(tau_res)
@@ -312,6 +314,14 @@ def main():
     R_musc = np.zeros((nbTau,nbMus, n_frames))
     tau_act = np.zeros((nbTau, n_frames))
 
+    scaling_factor_tau = 1.0  # normalisation globale du tau
+    scaling_factor_act = 10.0  # pour forcer activations réalistes
+    scaling_factor_emg = 100.0  # pour suivre EMG si W_EMG > 0
+
+    # Pondération par DoF pour équilibrer les contributions
+    tau_weight_per_dof = np.maximum(np.abs(tau[:, :n_frames].mean(axis=1)), 1.0)  # éviter 0
+    tau_weight = 1.0 / tau_weight_per_dof  # plus le DoF est grand, moins il pèse
+
     t0 = time.time()
     for k in range(n_frames):
         qk = q[:, k].reshape(-1)
@@ -324,26 +334,30 @@ def main():
         A_all = R * Fiso.reshape(1, -1)
         A = A_all[active_dof, :]
 
+        # Scaling par DoF pour éviter qu'un DoF domine
+        tauk_scaled = tauk * tau_weight
+        A_scaled = A * tau_weight[:, None]
+
         # EMG seulement pour les muscles mappés
         emg_full = np.zeros(nbMus)
         emgk = emg_env[:, k].reshape(-1)
         emg_full[track_idx] = emgk[emg_src_idx]
 
-        # Solve Ceglia QP
+        # Solve Ceglia QP avec pondérations et bornes physiologiques
         a_tr, tau_res_tr = run_ceglia_frame(
             solver=solver,
-            A_np=A,
-            tau_np=tauk,
-            emg_np=emg_full,
+            A_np=A_scaled,
+            tau_np=tauk_scaled,
+            emg_np=emg_full * scaling_factor_emg,
             is_emg_mask_np=is_emg_mask_full,
-            w_tau_val=W_TAU,
+            w_tau_val=W_TAU * scaling_factor_tau,
             w_res_val=W_RES,
             w_emg_val=W_EMG,
-            w_act_val=W_ACT,
+            w_act_val=W_ACT * scaling_factor_act,
         )
 
         # Compute errors
-        tau_m = A @ a_tr
+        tau_m = (A @ a_tr)
 
         print("Max |R|      :", np.max(np.abs(R)))
         print("Max f_tr    :", np.max(np.abs(Fiso)))
@@ -354,7 +368,7 @@ def main():
         tau_err_k = tauk - (tau_m + tau_res_tr)  # should be small when W_TAU high
 
         f_full = compute_muscle_forces_from_activation(model, qk, qdotk, a_tr)
-
+        #f_full = np.zeros(nbMus)
         # Save
         mus_act[:, k] = a_tr
         tau_act[:, k] = tau_m
@@ -377,10 +391,21 @@ def main():
     # ----------------------------
     # Plots
     # ----------------------------
+    #for dof_idx in range(len(active_dof)):
+    #    plt.figure(figsize=(10, 5))
+
+    #    for m in range(nbMus):
+    #        plt.plot(R_musc[dof_idx, m, :], alpha=0.4)
+    #
+    #    plt.axhline(0, color='k', linewidth=0.5)
+    #    plt.title(f"Moment arms R(t) – DoF {active_dof[dof_idx]}")
+    #    plt.xlabel("Frame")
+    #    plt.ylabel("R (m)")
+    #    plt.show()
 
 
-    err_mean = np.mean(tau_err, axis=1)
-    res_mean = np.mean(tau_res, axis=1)
+    err_mean = np.mean(np.abs(tau_err), axis=1)
+    res_mean = np.mean(np.abs(tau_res), axis=1)
 
     plt.figure(figsize=(10, 4))
     plt.bar(np.arange(nbTau), err_mean)
