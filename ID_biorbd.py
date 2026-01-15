@@ -45,7 +45,6 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
     qdot_filt = filtfilt(b, a, qdot_recons, axis=1)
     qddot_recons = np.load(qddot_path)
     qddot_filt = filtfilt(b, a, qddot_recons, axis=1)
-
     tau = np.zeros((nq, int(q_recons.shape[1])))
 
     origin = np.zeros((3, q_recons.shape[1]))
@@ -112,6 +111,14 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
         #print(f"Inverse dynamics tau: {tau}")
 
         dof_name = model.dof_names
+
+    i = 14
+    plt.figure()
+    plt.plot(qdot_filt[i, :], label="q")
+    plt.plot(tau[i, :], label="tau")
+    plt.legend()
+    plt.title("Alignement q / tau")
+    plt.show()
 
 
     return tau, dof_name
@@ -193,8 +200,9 @@ def main():
 
     print(f"DoF utilisé comme référence du cycle : {dof_name[ref_idx]}")
 
+    q = np.load(q_path)
     # Signal de référence
-    ref_signal = tau[ref_idx, :]  # ou q_recons[ref_idx,:] si nécessaire
+    ref_signal = q[ref_idx, :]  # ou q_recons[ref_idx,:] si nécessaire
 
     # Sélection plage temporelle
     ref_signal_sel = ref_signal[START:END]
@@ -270,6 +278,15 @@ def main():
     plt.xlabel("Cycle (%)")
     plt.tight_layout()
     plt.show()
+
+
+
+    plt.plot(tau[14,:], label = "tau flexion coude")
+    plt.plot(np.load(q_path)[14,:], label = "q flexion coude")
+    plt.plot(tau[12,:], label = "tau elevation epaule")
+    plt.legend()
+    plt.show()
+
 
 
 if __name__ == "__main__":

@@ -149,13 +149,16 @@ def main(show=True):
 
     print("IK Kalmann terminé.")
 
+    #q_recons[8, :] = (q_recons[8, :])%(2*pi)
+    #q_recons[11, :] = (q_recons[11, :] - pi)%(2*pi)
+    #q_recons[12, :] = (-q_recons[12, :])%(2*pi)
+    #q_recons[13, :] = (q_recons[13, :] - pi)%(2*pi)
+    #q_recons[14, :] = (q_recons[14, :])%(2*pi)
+    #q_recons[15, :] = (q_recons[15, :])%(2*pi)
+    #q_recons[16, :] = (q_recons[16, :]) % (2 * pi)
+    #q_recons[17, :] = (q_recons[17, :]) % (2 * pi)
 
-    q_recons[11, :] = (q_recons[11, :] + pi)%(2*pi)
-    q_recons[12, :] = (-q_recons[12, :])%(2*pi)
-    q_recons[13, :] = (q_recons[13, :] - pi)
-
-
-
+    q_recons[:,:] = np.unwrap(q_recons[:,:])
     JOINTS = {
         "Plan élévation hum": 0,
         "élévation hum": 1,
@@ -165,8 +168,8 @@ def main(show=True):
     # ===========================
     # 1) Détection des pics via le coude (référence du cycle)
     # ===========================
-    shoulder_euler = np.rad2deg(np.unwrap(q_recons[11:14, :]))
-    elbow_euler = np.rad2deg(np.unwrap(q_recons[14, :]))
+    shoulder_euler = np.rad2deg(q_recons[11:14, :])
+    elbow_euler = np.rad2deg(q_recons[14, :])
 
 
     plt.plot((np.rad2deg(np.unwrap(q_recons[11, :]))), label="Plan élévation hum kalmann")  #--> Abduction épaule
@@ -247,6 +250,7 @@ def main(show=True):
 
     plt.tight_layout()
     plt.show()
+
 
     # Animate the results if biorbd viz is installed
     if show and biorbd_viz_found:

@@ -14,9 +14,9 @@ frame_end   = 4100
 DOF_START = 6
 DOF_END   = 16   # python slice
 
-w_emg = 1e14
-w_a   = 10.0
-w_tau = 100.0
+w_emg = 0
+w_a   = 10
+w_tau = 10000.0
 w_res = 10.0
 
 # =========================================================
@@ -25,15 +25,18 @@ w_res = 10.0
 def get_R_and_Fiso(model, q_frame):
     nb_mus = model.nbMuscles()
 
-    # Convertir le Jacobien en CasADi MX
+    # Jacobien musculaire → CasADi MX
     J = model.musclesLengthJacobian(q_frame).to_mx()  # (nbMus, nbQ)
-    R = -ca.transpose(J)                               # Transposée avec CasADi
+    R = -ca.transpose(J)
 
-    # Force isométrique maximale
-    Fiso = ca.vertcat(*[model.muscle(i).characteristics().forceIsoMax() for i in range(nb_mus)])
+    # Force iso max → NumPy (constante)
+    Fiso = np.array(
+        [model.muscle(i).characteristics().forceIsoMax() * 1.0
+         for i in range(nb_mus)],
+        dtype=float
+    )
 
     return R, Fiso
-
 
 
 def build_emg_to_muscle_mapping(model, emg_to_muscle):
@@ -96,22 +99,30 @@ track_idx, emg_src_idx, tracked_names = build_emg_to_muscle_mapping(
 )
 
 # =========================================================
-# SYMBOLIQUE CASADI
+# SYMBOLIQUE CASADI (version avec muscularJointTorque)
 # =========================================================
-a        = ca.MX.sym("a", n_muscles)
-tau_res  = ca.MX.sym("tau_res", n_dof)
+a        = ca.MX.sym("a", n_muscles)        # activations
+tau_res  = ca.MX.sym("tau_res", n_dof)      # résidus
 
 q_sym    = ca.MX.sym("q", n_q)
+qdot_sym = ca.MX.sym("qdot", n_q)
 tau_sym  = ca.MX.sym("tau", n_dof)
 emg_sym  = ca.MX.sym("emg", len(emg_to_muscle))
 Fiso_sym = ca.MX.sym("Fiso", n_muscles)
-R_sym    = ca.MX.sym("R", n_dof, n_muscles)
 
-# forces musculaires
-f_m = a * Fiso_sym
+# Fonction CasADi pour couples musculaires
+def tau_muscles_fun(q_val,qdot_val, a_val):
+    """
+    Retourne les couples musculaires pour un q et des activations a
+    """
+    q_vec = np.array(q_val).flatten()
+    qdot_vec = np.array(qdot_val).flatten()
+    a_vec = np.array(a_val).flatten()
 
-# couples musculaires
-tau_m = R_sym @ f_m
+    return model.muscularJointTorque(q_vec,qdot_vec, a_vec)[DOF_START:DOF_END]
+
+# On transforme cette fonction en CasADi MX Function
+tau_m_fun = ca.Function('tau_m_fun', [q_sym, a], [ca.vertcat(*tau_muscles_fun(q_sym,qdot_sym, a))])
 
 # =========================================================
 # COÛT
@@ -121,6 +132,8 @@ for emg_ch in emg_to_muscle:
     mus = [i for i, src in zip(track_idx, emg_src_idx) if src == emg_ch]
     if mus:
         cost_emg += ca.sumsqr(ca.vertcat(*[a[m] for m in mus]) - emg_sym[emg_ch])
+
+tau_m = tau_m_fun(q_sym,qdot_sym, a)  # couples musculaires CasADi
 
 cost = (
     w_emg * cost_emg
@@ -133,7 +146,7 @@ cost = (
 # NLP
 # =========================================================
 x = ca.vertcat(a, tau_res)
-p = ca.vertcat(emg_sym, q_sym, tau_sym, Fiso_sym, ca.reshape(R_sym, -1, 1))
+p = ca.vertcat(emg_sym, q_sym, qdot_sym, tau_sym)  # R n'est plus nécessaire
 
 solver = ca.nlpsol(
     "solver", "ipopt",
@@ -149,20 +162,13 @@ x0 = np.zeros(n_muscles + n_dof)
 
 for k, frame in enumerate(range(frame_start, frame_end)):
 
-    R_full, Fiso = get_R_and_Fiso(model, q[:, frame])
-    R = R_full[DOF_START:DOF_END, :]
-
     tau_frame = tau[DOF_START:DOF_END, frame]
-    tau_max = R @ Fiso
-    tau_max[np.abs(tau_max) < 1e-6] = 1.0
-    tau_norm = tau_frame / tau_max
 
     p_k = np.concatenate((
         emg[:, frame][list(emg_to_muscle.keys())],
         q[:, frame],
-        tau_norm,
-        Fiso,
-        R.flatten()
+        qdot[:,frame],
+        tau_frame,
     ))
 
     sol = solver(x0=x0, p=p_k)

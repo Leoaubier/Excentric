@@ -8,7 +8,7 @@ from scipy.signal import find_peaks
 # ----------------------------
 # Paths
 # ----------------------------
-MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.BioMod"
+MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
 
 Q_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy"
 QDOT_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_sidonie_40W.npy"
@@ -18,19 +18,18 @@ EMG_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/EMG/emg_processed_resampled
 # ----------------------------
 # Config
 # ----------------------------
-FIRST, END = 3000, 6000
+FIRST, END = 3000, 4000
 EPS_ACT = 1e-4 # éviter une activation à 0 ou 1
 
-TAU_RES_BND = 0.1  # ±5 Nm as in Ceglia et al.
+TAU_RES_BND = 2# ±5 Nm
 
 
-W_EMG = 0    # EMG tracking
-W_ACT = 10000000    # activation penalty for non-EMG muscles
-W_TAU = 10000000  # torque tracking
-W_RES = 1       # residual torque penalty
-
+W_EMG = 10000000000    # EMG tracking
+W_ACT = 10000   # activation penalty for non-EMG muscles
+W_TAU = 1000000 # torque tracking
+W_RES = 1     # residual torque penalt
 #active_dof = [6,7,8,9,10,11,12,13,14,15]
-active_dof = [8,9,10,11,12,13,14]
+active_dof = [6,7,8,9,10,11,12,13,14,15]
 
 
 
@@ -132,7 +131,7 @@ def get_R_and_Fiso(model, q):
     J = model.musclesLengthJacobian(q).to_array()   # (nbMus, nbQ)
     R = -J.T                                        # (nbQ, nbMus) --> -J normalement
 
-    # Force isométrique maximale (bornée, physiologique)
+    # Force isométrique maximale
     Fiso = np.array(
         [model.muscle(i).characteristics().forceIsoMax() for i in range(nb_mus)],
         dtype=float
@@ -152,12 +151,13 @@ def compute_muscle_forces_from_activation(model: biorbd.Model, q: np.ndarray, qd
         states[i].setActivation(float(a[i]))
 
     forces = model.muscleForces(states, q, qdot).to_array()
+
     return np.asarray(forces).reshape(-1)
 
 # ----------------------------
-# Ceglia QP: variables = [a ; tau_res]
+# QP: variables = [a ; tau_res]
 # ----------------------------
-def build_ceglia_solver_with_p(nb_mus: int, nb_tau: int, qp_solver_name=QP_SOLVER):
+def build_solver_with_p(nb_mus: int, nb_tau: int, qp_solver_name=QP_SOLVER):
     """
     Decision variables:
       x = [a (nb_mus) ; tau_res (nb_tau)]
@@ -169,48 +169,62 @@ def build_ceglia_solver_with_p(nb_mus: int, nb_tau: int, qp_solver_name=QP_SOLVE
       emg: (nb_mus,)   (already duplicated to match tracked muscles)
       is_emg_mask: (nb_mus,) 1 if muscle has EMG, else 0
     """
-    x = ca.MX.sym("x", nb_mus + nb_tau)
+    x = ca.MX.sym("x", nb_mus + nb_tau)  # [a ; tau_res]
     a = x[:nb_mus]
     tau_res = x[nb_mus:]
 
     p = ca.MX.sym("p", nb_tau * nb_mus + nb_tau + nb_mus + nb_mus + 4)
 
     off = 0
-    A_vec = p[off: off + nb_tau * nb_mus]; off += nb_tau * nb_mus
-    tau = p[off: off + nb_tau]; off += nb_tau
-    emg = p[off: off + nb_mus]; off += nb_mus
-    is_emg = p[off: off + nb_mus]; off += nb_mus
-    w_tau = p[off]; w_res = p[off + 1]; w_emg = p[off + 2]; w_act = p[off + 3]
+    A_vec = p[off:off + nb_tau * nb_mus];
+    off += nb_tau * nb_mus
+    tau = p[off:off + nb_tau];
+    off += nb_tau
+    emg = p[off:off + nb_mus];
+    off += nb_mus
+    is_emg = p[off:off + nb_mus];
+    off += nb_mus
+    w_tau = p[off];
+    w_res = p[off + 1];
+    w_emg = p[off + 2];
+    w_act = p[off + 3]
 
     A = ca.reshape(A_vec, nb_tau, nb_mus)
     tau_m = A @ a
-
-    # torque tracking: tau - (tau_m + tau_res)
     tau_err = tau - (tau_m + tau_res)
-
-    # EMG term only for muscles with EMG
     emg_err = (emg - a) * is_emg
+    #a_ninf = a
+    a_ninf = a * (1 - is_emg)
 
-    # activation regularization only for muscles WITHOUT EMG
-    #a_ninf = a * (1 - is_emg)
-    a_ninf = a #car wemg est à 0
-    cost = (
-        w_tau * ca.sumsqr(tau_err)
-        + w_res * ca.sumsqr(tau_res)
-        + w_emg * ca.sumsqr(emg_err)
-        + w_act * ca.sumsqr(a_ninf)
-    )
+    cost = (w_tau * ca.sumsqr(tau_err) +
+            w_res * ca.sumsqr(tau_res) +
+            w_emg * ca.sumsqr(emg_err) +
+            w_act * ca.sumsqr(a_ninf))
 
     qp = {"x": x, "f": cost, "g": ca.MX(), "p": p}
 
+
+    qp_opts = {'printLevel': '2', 'print_time': True}
+
+
     try:
-        solver = ca.qpsol("ceglia_qp", qp_solver_name, qp)
+        solver = ca.qpsol("qp", qp_solver_name, qp)
     except Exception:
-        solver = ca.qpsol("ceglia_qp", "osqp", qp)
+        solver = ca.nlpsol("qp", "ipopt", qp)
 
-    return solver
+    # -------------------
+    # Fonction CasADi pour tester le coût
+    # -------------------
+    f_cost = ca.Function("f_cost", [x, p], [cost])
 
-def run_ceglia_frame(
+    f_cost_2 = ca.Function("f_cost_2", [x, p], [tau_m])
+
+    # -------------------
+    # Retourne solver et fonction de coût
+    # -------------------
+    return solver, f_cost, f_cost_2
+
+def run_frame(
     solver,
     A_np: np.ndarray,
     tau_np: np.ndarray,
@@ -224,7 +238,7 @@ def run_ceglia_frame(
     nb_tau, nb_mus = A_np.shape
 
     p = np.concatenate([
-        A_np.reshape(-1),
+        A_np.flatten(order='F'),
         tau_np.reshape(-1),
         emg_np.reshape(-1),
         is_emg_mask_np.reshape(-1),
@@ -235,14 +249,19 @@ def run_ceglia_frame(
     lbx = np.concatenate([np.zeros(nb_mus), -TAU_RES_BND * np.ones(nb_tau)])
     ubx = np.concatenate([np.ones(nb_mus),  TAU_RES_BND * np.ones(nb_tau)])
 
+
+
     sol = solver(lbx=lbx, ubx=ubx, p=p)
+    stats = solver.stats()
+
     x_opt = np.array(sol["x"]).reshape(-1)
 
     a_opt = x_opt[:nb_mus]
     tau_res_opt = x_opt[nb_mus:]
 
-    a_opt = np.clip(a_opt, EPS_ACT, 1.0 - EPS_ACT)
-    return a_opt, tau_res_opt
+
+    a_opt = np.clip(a_opt, 0, 1.0 - EPS_ACT)
+    return a_opt, tau_res_opt, stats
 
 # ----------------------------
 # Main
@@ -283,9 +302,12 @@ def main():
     q = q[:, FIRST:END]
     qdot = qdot[:, FIRST:END]
     tau = tau[active_dof, FIRST:END]
+    #tau[1,:] = -tau[1,:] #test !!!!!!
     emg_env = emg_env[:, FIRST:END]
     n_frames = q.shape[1]
     print(f"Data windowed: nFrames={n_frames}")
+
+
 
     # Mapping
     track_idx, emg_src_idx, tracked_names = build_emg_to_muscle_mapping(model, emg_to_muscle, verbose=True)
@@ -302,7 +324,7 @@ def main():
     is_emg_mask_full[track_idx] = 1.0  # seulement les muscles avec EMG
 
     # Solver
-    solver = build_ceglia_solver_with_p(nbMus, nbTau, qp_solver_name=QP_SOLVER)
+    solver, f_cost, f_cost_2 = build_solver_with_p(nbMus, nbTau, qp_solver_name=QP_SOLVER)
 
     # Outputs
     mus_act = np.zeros((nbMus, n_frames))
@@ -313,14 +335,13 @@ def main():
     Fiso_musc = np.zeros((nbMus, n_frames))
     R_musc = np.zeros((nbTau,nbMus, n_frames))
     tau_act = np.zeros((nbTau, n_frames))
+    tau_from_muscle = np.zeros((nbTau, n_frames))
 
     scaling_factor_tau = 1.0  # normalisation globale du tau
-    scaling_factor_act = 10.0  # pour forcer activations réalistes
-    scaling_factor_emg = 100.0  # pour suivre EMG si W_EMG > 0
+    scaling_factor_act = 1.0  # pour forcer activations réalistes
+    scaling_factor_emg = 1  # pour suivre EMG si W_EMG > 0
+    scaling_factor_res = 1  # pour suivre EMG si W_EMG > 0
 
-    # Pondération par DoF pour équilibrer les contributions
-    tau_weight_per_dof = np.maximum(np.abs(tau[:, :n_frames].mean(axis=1)), 1.0)  # éviter 0
-    tau_weight = 1.0 / tau_weight_per_dof  # plus le DoF est grand, moins il pèse
 
     t0 = time.time()
     for k in range(n_frames):
@@ -328,47 +349,80 @@ def main():
         qdotk = qdot[:, k].reshape(-1)
         tauk = tau[:, k].reshape(-1)
 
+
         # Build A
         R, Fiso = get_R_and_Fiso(model, qk)
 
         A_all = R * Fiso.reshape(1, -1)
         A = A_all[active_dof, :]
 
-        # Scaling par DoF pour éviter qu'un DoF domine
-        tauk_scaled = tauk * tau_weight
-        A_scaled = A * tau_weight[:, None]
 
         # EMG seulement pour les muscles mappés
         emg_full = np.zeros(nbMus)
         emgk = emg_env[:, k].reshape(-1)
+
         emg_full[track_idx] = emgk[emg_src_idx]
 
-        # Solve Ceglia QP avec pondérations et bornes physiologiques
-        a_tr, tau_res_tr = run_ceglia_frame(
-            solver=solver,
-            A_np=A_scaled,
-            tau_np=tauk_scaled,
-            emg_np=emg_full * scaling_factor_emg,
+
+        x_val = np.zeros(nbMus + nbTau)
+        p_val = np.concatenate([
+        A.flatten(order='F'),
+        tauk,
+        emg_full,
+        is_emg_mask_full,
+        np.array([W_TAU, W_RES, W_EMG, W_ACT])
+         ])
+
+        # Évalue le coût directement
+        print("Coût CasADi =", f_cost(x_val, p_val).full())
+        print("weighted term in :", W_TAU * np.sum(tauk ** 2))
+        print("tau_m_casadi_in", f_cost_2(x_val, p_val).full())
+
+        print("A shape:", A.shape)
+        print("A passed to solver:", A.flatten()[:20])
+        print("R*Fiso slice:", (R * Fiso.reshape(1, -1))[active_dof, :5])
+
+        # Solve avec pondérations et bornes physiologiques
+        a_tr, tau_res_tr, stats = run_frame(
+            solver = solver,
+            A_np=A,
+            tau_np=tauk,
+            emg_np=emg_full,
             is_emg_mask_np=is_emg_mask_full,
             w_tau_val=W_TAU * scaling_factor_tau,
-            w_res_val=W_RES,
-            w_emg_val=W_EMG,
+            w_res_val=W_RES * scaling_factor_res,
+            w_emg_val=W_EMG* scaling_factor_emg,
             w_act_val=W_ACT * scaling_factor_act,
         )
+
+        print("Max diff A @ a - f_cost_2:",
+              np.max(np.abs((A @ a_tr) - f_cost_2(np.concatenate([a_tr, tau_res_tr]), p_val).full())))
+
+        x_val_exit = np.concatenate([a_tr, tau_res_tr])
+
+        print("Coût CasADi sortie =", f_cost(x_val_exit, p_val).full())
+        print("tau_m_casadi_exit", f_cost_2(x_val_exit, p_val).full())
 
         # Compute errors
         tau_m = (A @ a_tr)
 
-        print("Max |R|      :", np.max(np.abs(R)))
-        print("Max f_tr    :", np.max(np.abs(Fiso)))
-        print("Max |A|     :", np.max(np.abs(A)))
-        print("Max |tau_m| :", np.max(np.abs(A @ a_tr)))
-        print("Max |tau|   :", np.max(np.abs(tauk)))
-
-        tau_err_k = tauk - (tau_m + tau_res_tr)  # should be small when W_TAU high
+        print("tau_m", tau_m)
 
         f_full = compute_muscle_forces_from_activation(model, qk, qdotk, a_tr)
         #f_full = np.zeros(nbMus)
+
+        tau_from_muscle[:, k] = (R @ f_full)[active_dof]
+
+        #tau_err_k = tauk - (tau_from_muscle[:,k] + tau_res_tr)  # should be small when W_TAU high
+        tau_err_k = tauk - (tau_m + tau_res_tr)  # should be small when W_TAU high
+        print("QP tau_err max :", np.max(np.abs(tau_err_k)))
+        print("tau_err vector :", tau_err_k)
+        print("sumsqr(tau_err):", np.sum(tau_err_k ** 2))
+        print("weighted term  :", W_TAU * np.sum(tau_err_k ** 2))
+
+        print("L2 norm :", np.linalg.norm(tau_err_k))
+        print("Linf norm :", np.max(np.abs(tau_err_k)))
+
         # Save
         mus_act[:, k] = a_tr
         tau_act[:, k] = tau_m
@@ -535,9 +589,19 @@ def main():
         # tau_err
         fig.add_trace(
             go.Scatter(
-                y=tau_act[i, :],
+                y=tau_from_muscle[i, :],
                 mode="lines",
                 name=f"{i}: tau_act",
+                legendgroup=f"group_{i}",
+                line=dict(dash="dot")
+            )
+        )
+        # tau_act_simpl
+        fig.add_trace(
+            go.Scatter(
+                y=tau_act[i, :],
+                mode="lines",
+                name=f"{i}: tau_act_simpl",
                 legendgroup=f"group_{i}",
                 line=dict(dash="dot")
             )
