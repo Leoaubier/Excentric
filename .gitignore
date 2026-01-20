@@ -1,21 +1,5 @@
-# Default ignored files
-/shelf/
-/workspace.xml
-c_generated_code/
 
-
-# Fichiers compilés
-build/
-dist/
-*.o
-*.exe
-
-# Fichiers temporaires
-*.log
-*.tmp
-
-# IDE
-.vscode/
-.idea/
 /c_generated_code/
 /config_camera/
+/muscle_activations_nonlinear.npy
+/GaitAnalyzer/
