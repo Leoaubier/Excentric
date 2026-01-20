@@ -13,14 +13,14 @@ QDOT_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_
 TAU_PATH  = "/Users/leo/Desktop/Projet/Collecte_25_11/ID/tau_inverse_dynamic_Sidonie_40w.npy"
 EMG_PATH  = "/Users/leo/Desktop/Projet/Collecte_25_11/EMG/emg_processed_resampled.npy"
 
-FIRST, END = 3000, 4000
-TAU_RES_BND = 5.0
+FIRST, END = 3000, 3050
+TAU_RES_BND = 3.0
 EPS_ACT = 1e-6
 
-W_TAU = 1e4
-W_RES = 1.0
-W_EMG = 1e3
-W_ACT = 1e2
+W_TAU = 1e1
+W_RES = 1e1
+W_EMG = 1e10
+W_ACT = 1e1
 
 active_dof = [6,7,8,9,10,11,12,13,14,15]
 
@@ -40,17 +40,44 @@ emg_to_muscle = {
 def transpose_if_needed(arr, target_rows):
     return arr if arr.shape[0] == target_rows else arr.T
 
-def build_emg_mapping(model, mapping):
-    names = [model.muscle(i).name().to_string() for i in range(model.nbMuscles())]
-    track_idx, emg_idx = [], []
+def extract_cycles_generic(signal, peaks):
+    out = []
+    for i in range(len(peaks) - 1):
+        seg = signal[peaks[i]:peaks[i + 1]]
+        seg_norm = np.interp(
+            np.linspace(0, 1, 200),
+            np.linspace(0, 1, len(seg)),
+            seg
+        )
+        out.append(seg_norm)
+    return np.array(out)
 
-    for ch, key in mapping.items():
-        for i, name in enumerate(names):
-            if key in name:
-                track_idx.append(i)
-                emg_idx.append(ch)
+def build_emg_to_muscle_mapping(model: biorbd.Model, emg_to_muscle_dict: dict, verbose=True):
+    muscle_names = [model.muscle(i).name().to_string() for i in range(model.nbMuscles())]
+    sorted_items = sorted(emg_to_muscle_dict.items(), key=lambda x: x[0])
 
-    return np.array(track_idx), np.array(emg_idx)
+    track_idx = []
+    emg_src_idx = []
+    tracked_muscle_names = []
+
+    if verbose:
+        print("\n[EMG → Muscle mapping]")
+        print("-" * 60)
+
+    for emg_ch, key in sorted_items:
+        matches = [i for i, mname in enumerate(muscle_names) if key in mname]
+        if len(matches) == 0:
+            raise ValueError(f"No muscle matched for EMG key '{key}' (ch {emg_ch})")
+
+        if verbose:
+            print(f"EMG {emg_ch:>2} ({key:25s}) → {[muscle_names[i] for i in matches]}")
+
+        for mi in matches:
+            track_idx.append(mi)
+            emg_src_idx.append(emg_ch)
+            tracked_muscle_names.append(muscle_names[mi])
+
+    return np.array(track_idx, dtype=int), np.array(emg_src_idx, dtype=int), tracked_muscle_names
 
 def build_nlp_solver(model_path, nb_mus, nb_tau):
     model = biorbdc.Model(model_path)
@@ -90,10 +117,12 @@ def build_nlp_solver(model_path, nb_mus, nb_tau):
     solver = ca.nlpsol(
         "solver", "ipopt",
         {"x": x, "f": cost, "p": p},
-        {"ipopt.print_level": 3, "print_time": True}
+        {"ipopt.print_level": 5, "print_time": True}
     )
 
-    return solver
+    f_cost = ca.Function("f_cost", [x, p], [cost])
+
+    return solver, f_cost
 
 def main():
 
@@ -116,17 +145,20 @@ def main():
     print("emg shape :", emg.shape)
     print("FIRST,END :", FIRST, END)
 
-    track_idx, emg_idx = build_emg_mapping(model_np, emg_to_muscle)
+    track_idx, emg_idx, tracked_names = build_emg_to_muscle_mapping(model_np, emg_to_muscle)
 
     is_emg_mask = np.zeros(nbMus)
     is_emg_mask[track_idx] = 1.0
 
-    solver = build_nlp_solver(MODEL_PATH, nbMus, nbTau)
+    solver, f_cost = build_nlp_solver(MODEL_PATH, nbMus, nbTau)
 
     n_frames = q.shape[1]
     mus_act  = np.zeros((nbMus, n_frames))
     tau_res  = np.zeros((nbTau, n_frames))
     tau_musc = np.zeros((nbTau, n_frames))
+    tau_err = np.zeros((nbTau, n_frames))
+    mus_force = np.zeros((nbMus, n_frames))
+
 
     t0 = time.time()
 
@@ -145,16 +177,31 @@ def main():
         lbx = np.concatenate([np.zeros(nbMus), -TAU_RES_BND*np.ones(nbTau)])
         ubx = np.concatenate([np.ones(nbMus),  TAU_RES_BND*np.ones(nbTau)])
 
+
         sol = solver(x0=x0, lbx=lbx, ubx=ubx, p=p)
+
         xopt = np.array(sol["x"]).squeeze()
 
         a_opt = np.clip(xopt[:nbMus], 0, 1-EPS_ACT)
         tau_res[:,k] = xopt[nbMus:]
         mus_act[:,k] = a_opt
 
+        states = model_np.stateSet()
+        for i in range(nbMus):
+            states[i].setActivation(a_opt[i])
+
         tau_musc[:,k] = model_np.muscularJointTorque(
-            q[:,k], qdot[:,k], a_opt
+            states, q[:,k], qdot[:,k]
         ).to_array()[active_dof]
+
+
+        tau_err[:,k] = tau[:,k]-(tau_musc[:,k]+tau_res[:,k])
+
+        mus_force[:,k] = model_np.muscleForces(states, q[:,k], qdot[:,k]).to_array()
+
+        print("Coût CasADi =", f_cost(x0, p).full())
+        print("Coût Sortie =", f_cost(xopt, p).full())
+
 
         if (k+1) % 100 == 0:
             print(f"Frame {k+1}/{n_frames}")
@@ -162,11 +209,231 @@ def main():
     print("Done in", time.time() - t0, "s")
     np.save("muscle_activations_nonlinear.npy", mus_act)
 
-    plt.figure(figsize=(12,4))
-    plt.plot(tau_musc.T)
-    plt.title("Couples musculaires non linéaires")
-    plt.ylim(-1000, 1000)
+    err_mean = np.mean(np.abs(tau_err), axis=1)
+    res_mean = np.mean(np.abs(tau_res), axis=1)
+
+    plt.figure(figsize=(10, 4))
+    plt.bar(np.arange(nbTau), err_mean)
+    plt.title("Moyenne de |tau_err| par DoF  (τ - (A a + τ_res))")
+    plt.xlabel("DoF index")
+    plt.ylabel("mean |tau_err|")
+    plt.grid(True, axis="y")
+    plt.tight_layout()
     plt.show()
+
+    plt.figure(figsize=(10, 4))
+    plt.bar(np.arange(nbTau), res_mean)
+    plt.title("Moyenne de |τ_res| par DoF  (borne ±5 Nm)")
+    plt.xlabel("DoF index")
+    plt.ylabel("mean |τ_res|")
+    plt.grid(True, axis="y")
+    plt.tight_layout()
+    plt.show()
+
+    nbTrackedMus = track_idx.shape[0]
+
+    mus_act_emg = np.zeros((nbTrackedMus,n_frames))
+    for i, idx in enumerate(track_idx):
+        mus_act_emg[i, :] = mus_act[idx, :]
+    plt.figure(figsize=(14, 6))
+    for i in range(nbTrackedMus):
+        plt.plot(mus_act_emg[i, :], label=f"{i}: {tracked_names[i]}")
+    plt.title("Activations musculaires")
+    plt.xlabel("Frame")
+    plt.ylabel("Activation")
+    plt.grid(True)
+    plt.legend(ncol=2, fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+
+    all_muscle_names = [model_np.muscle(i).name().to_string() for i in range(model_np.nbMuscles())]
+
+
+    plt.figure(figsize=(14, 6))
+    for i in range(nbMus):
+        plt.plot(mus_act[i, :], label=f"{i}: {all_muscle_names[i]}")
+    plt.title("Activations musculaires")
+    plt.xlabel("Frame")
+    plt.ylabel("Activation")
+    plt.grid(True)
+    plt.legend(ncol=2, fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(14, 6))
+    for i in range(nbMus):
+        plt.plot(mus_force[i, :], label=f"{i}: {all_muscle_names[i]}")
+    plt.title("Forces musculaires")
+    plt.xlabel("Frame")
+    plt.ylabel("Force en N")
+    plt.grid(True)
+    plt.legend(ncol=2, fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(14, 6))
+
+    for i, name in enumerate(tracked_names):
+        emg_ch = emg_idx[i]  # ✅ canal EMG correspondant à ce muscle
+
+        plt.plot(
+            mus_act_emg[i, :],
+            label=f"Activation {name}"
+        )
+
+        plt.plot(
+            emg[emg_ch,:],
+            '--',
+            label=f"EMG ch{emg_ch}"
+        )
+
+    plt.xlabel("Frame")
+    plt.ylabel("Activation / EMG")
+    plt.title("Activations musculaires vs EMG")
+    plt.grid(True)
+    plt.legend(ncol=2, fontsize=8)
+    plt.tight_layout()
+    plt.show()
+
+    import plotly.graph_objects as go
+
+    fig = go.Figure()
+
+    for i in range(nbTau):
+        # tau
+        fig.add_trace(
+            go.Scatter(
+                y=tau[i, :],
+                mode="lines",
+                name=f"{i}: (tau)",
+                legendgroup=f"group_{i}"
+            )
+        )
+
+        # tau_res
+        fig.add_trace(
+            go.Scatter(
+                y=tau_res[i, :],
+                mode="lines",
+                name=f"{i}: tau_res",
+                legendgroup=f"group_{i}",
+                line=dict(dash="dash")
+            )
+        )
+
+        # tau_err
+        fig.add_trace(
+            go.Scatter(
+                y=tau_musc[i, :],
+                mode="lines",
+                name=f"{i}: tau_act",
+                legendgroup=f"group_{i}",
+                line=dict(dash="dot")
+            )
+        )
+
+
+    fig.update_layout(
+        title="Couples articulaires : tau, tau_res, tau_err",
+        xaxis_title="Frame",
+        yaxis_title="Couple (N·m)",
+        hovermode="x unified",
+        legend=dict(
+            itemclick="toggle",
+            itemdoubleclick="toggleothers"
+        ),
+        template="plotly_white",
+        height=500
+    )
+
+    fig.show()
+    # Return results
+
+    #---------- Plot final -----------
+    # ==========================================================
+    # DÉTECTION DES CYCLES À PARTIR D’UN DOF DE RÉFÉRENCE
+    # ==========================================================
+
+    # Choix automatique d’un DOF de référence pour détecter les cycles
+    ref_idx = 0 #8 si les 10 DoF
+
+    print(f"DoF utilisé comme référence du cycle : coude flexion")
+
+    # Signal de référence
+    ref_signal = tau[ref_idx, :]
+
+    # Détection des peaks
+    peaks_sel, _ = find_peaks(ref_signal, distance=100)
+
+    print("Nombre de cycles détectés :", len(peaks_sel) - 1)
+    # ==========================================================
+    # === SUBPLOT : COUPLES / FORCES PAR DOF SUR LE CYCLE ===
+    # =========================================================
+    MUSC_TO_PLOT = "ALL"
+    # ----------- Sélection DoF à tracer ------------
+    if MUSC_TO_PLOT == "ALL":
+        selected_musc = all_muscle_names
+    else:
+        selected_musc = MUSC_TO_PLOT
+
+    # ----------- Construction cycles τ par DoF --------
+    cycles_tau = {}
+    mean_tau = {}
+    std_tau = {}
+
+    for dof in selected_musc:
+        idx = all_muscle_names.index(dof)
+        cyc = extract_cycles_generic(mus_act[idx, :], peaks_sel)
+        cycles_tau[dof] = cyc
+        mean_tau[dof] = np.mean(cyc, axis=0)
+        std_tau[dof] = np.std(cyc, axis=0)
+    # ----------- Plot final : GRILLE DE SUBPLOTS -------------------------
+
+    import math
+
+    x = np.linspace(0, 100, 200)
+
+    # Définition automatique d'une grille
+    n_cols = math.ceil(math.sqrt(nbMus))
+    n_rows = math.ceil(nbMus / n_cols)
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 3 * n_rows), sharex=True)
+    axes = axes.flatten()  # pour parcourir facilement
+
+    for ax, dof in zip(axes, all_muscle_names):
+
+        # cycles individuels
+        for c in cycles_tau[dof]:
+            ax.plot(x, c, color="gray", alpha=0.25)
+
+        # moyenne
+        ax.plot(x, mean_tau[dof], linewidth=2, color="blue")
+
+        # écart-type
+        ax.fill_between(
+            x,
+            mean_tau[dof] - std_tau[dof],
+            mean_tau[dof] + std_tau[dof],
+            color="blue",
+            alpha=0.15
+        )
+
+        ax.set_title(dof, fontsize=8)
+        ax.set_ylabel("Activation")
+        ax.grid(True)
+
+    # Supprimer les axes inutilisés si la grille est trop grande
+    for i in range(len(selected_musc), len(axes)):
+        fig.delaxes(axes[i])
+
+    # Label global
+    plt.xlabel("Cycle (%)")
+    plt.tight_layout()
+    plt.show()
+
+
+
 
 if __name__ == "__main__":
     main()
