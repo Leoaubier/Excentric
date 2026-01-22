@@ -5,15 +5,18 @@ import casadi as ca
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "40"
+
 # ----------------------------
 # Paths
 # ----------------------------
 MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
 
-Q_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy"
-QDOT_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_sidonie_40W.npy"
-TAU_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/ID/tau_inverse_dynamic_Sidonie_40w.npy"
-EMG_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/EMG/emg_processed_resampled.npy"
+Q_PATH    = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
+QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy"
+TAU_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
+EMG_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy"
 
 # ----------------------------
 # Config
@@ -440,7 +443,7 @@ def main():
     print("\nDone.")
     print(f"Total time: {total:.3f} s")
 
-    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/statique/muscle_activations.npy", mus_act)
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/muscle_activations_linear.npy", mus_act)
     print("activations save")
     # ----------------------------
     # Plots

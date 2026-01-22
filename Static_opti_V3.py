@@ -6,21 +6,24 @@ import biorbd_casadi as biorbdc
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "40"
+
 MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
 
-Q_PATH    = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy"
-QDOT_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_sidonie_40W.npy"
-TAU_PATH  = "/Users/leo/Desktop/Projet/Collecte_25_11/ID/tau_inverse_dynamic_Sidonie_40w.npy"
-EMG_PATH  = "/Users/leo/Desktop/Projet/Collecte_25_11/EMG/emg_processed_resampled.npy"
+Q_PATH    = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
+QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy"
+TAU_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
+EMG_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy"
 
-FIRST, END = 3000, 3050
+FIRST, END = 3000, 3200
 TAU_RES_BND = 3.0
 EPS_ACT = 1e-6
 
-W_TAU = 1e1
-W_RES = 1e1
+W_TAU = 1e6
+W_RES = 1e0
 W_EMG = 1e10
-W_ACT = 1e1
+W_ACT = 1e4
 
 active_dof = [6,7,8,9,10,11,12,13,14,15]
 
@@ -207,7 +210,7 @@ def main():
             print(f"Frame {k+1}/{n_frames}")
 
     print("Done in", time.time() - t0, "s")
-    np.save("muscle_activations_nonlinear.npy", mus_act)
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/muscle_activations_nonlinear.npy", mus_act)
 
     err_mean = np.mean(np.abs(tau_err), axis=1)
     res_mean = np.mean(np.abs(tau_res), axis=1)

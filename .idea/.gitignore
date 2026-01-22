@@ -1,0 +1,18 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+c_generated_code/
+
+# Fichiers compilés
+build/
+dist/
+*.o
+*.exe
+
+# Fichiers temporaires
+*.log
+*.tmp
+
+# IDE
+.vscode/
+.idea/

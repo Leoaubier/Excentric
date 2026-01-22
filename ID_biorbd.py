@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "40"
+
 #
 # This examples shows how to
 #     1. Load a model
@@ -16,12 +19,12 @@ from scipy.signal import find_peaks, butter, filtfilt
 #
 model_path = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
 model_pedal_path = '/Users/leo/Desktop/Projet/modele_opensim/model_pedal.bioMod'
-q_path     = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy"
-q_pedal_path = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/inverse_kinematic_pedal_40W.npy"
-qdot_path  = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_sidonie_40W.npy"
-qddot_path  = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/qddot_inverse_kinematic_sidonie_40W.npy"
-force_path = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_global_40W.npy"
-force_pedal_path = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_pedal_40W.npy"
+q_path     = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
+q_pedal_path = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/inverse_kinematic_pedal.npy"
+qdot_path  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy"
+qddot_path  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qddot_inverse_kinematic.npy"
+force_path = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_global.npy"
+force_pedal_path = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_pedal.npy"
 
 
 
@@ -141,7 +144,7 @@ def main():
 
     tau, dof_name = inverse_dynamic(model_path, q_path, qdot_path, qddot_path)
 
-    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/ID/tau_inverse_dynamic_Sidonie_40w", tau)
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic", tau)
     plt.figure()
     for i in range(len(dof_name)):
         plt.plot(tau[i,500:], label=dof_name[i])

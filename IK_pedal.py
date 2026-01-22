@@ -15,6 +15,9 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "40"
+
 
 # === Choix des frames à analyser ===
 END_FRAME   = None    # Dernière frame (None = dernière frame du fichier)
@@ -178,7 +181,7 @@ def transform_forces_to_global(model, q_recons, F_local, M_local,
     else:
         raise ValueError("mode must be 'interp' or 'nearest'")
 
-    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_pedal_40W.npy", [Mp_resampled, Fp_resampled])
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_pedal.npy", [Mp_resampled, Fp_resampled])
     # ----------------------------
     # 3) Transformation en global
     # ----------------------------
@@ -212,8 +215,8 @@ def transform_forces_to_global(model, q_recons, F_local, M_local,
 def main(show=True):
 
     model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/model_pedal.bioMod")
-    c3d_path = Path("/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/concentric_40W.c3d")
-    sensix_path = Path("/Users/leo/Desktop/Projet/Collecte_25_11/pedales/Results-concentric_40w_001.lvm")
+    c3d_path = Path(f"/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d")
+    sensix_path = Path(f"/Users/leo/Desktop/Projet/Collecte_25_11/pedales/Results-{MODE_PEDALAGE}_{PUISSANCE}w_001.lvm")
 
 
     #afficher_entetes_ezc3d(str(c3d_path))
@@ -259,7 +262,7 @@ def main(show=True):
 
     print("IK terminé.")
 
-    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/inverse_kinematic_pedal_40W.npy", q_recons)
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/inverse_kinematic_pedal.npy", q_recons)
     print("données IK enregistrées :)")
 
     all_data = []
@@ -282,7 +285,7 @@ def main(show=True):
 
     global_force, global_moment = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:])
     global_constraint = [global_moment, global_force]
-    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/constraint_global_40W.npy", global_constraint)
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_global.npy", global_constraint)
     print("Forces et Moments enregistrés")
     print("markers frames:", n_frames)
     print("forces frames:", all_data.shape[1])  # total forces

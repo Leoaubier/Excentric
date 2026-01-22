@@ -11,6 +11,9 @@ import numpy as np
 
 from pyomeca import Analogs
 
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "40"
+
 
 def resample_emg_to_100hz(emg, target_fs=100):
     """
@@ -47,7 +50,7 @@ def resample_emg_to_100hz(emg, target_fs=100):
 
 
 # Lecture du fichier C3D
-file = "/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/concentric_40W.c3d"
+file = f"/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d"
 file_dir = "/Users/leo/Desktop/Projet/Collecte_25_11/MVC"
 print(Analogs.from_c3d(file).name)
 
@@ -175,6 +178,6 @@ plt.tight_layout()
 plt.show()
 
 np.save(
-    "/Users/leo/Desktop/Projet/Collecte_25_11/EMG/emg_processed_resampled.npy",
+    f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy",
     emg_processed_resampled.values
 )

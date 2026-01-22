@@ -13,6 +13,9 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "40"
+
 
 # === Choix des frames à analyser ===
 END_FRAME   = None    # Dernière frame (None = dernière frame du fichier)
@@ -109,7 +112,7 @@ def extract_cycles(signal_deg, peaks):
 def main(show=True):
 
     model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod")
-    c3d_path = Path("/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/concentric_40W.c3d")
+    c3d_path = Path(f"/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d")
 
     model = biorbd.Biorbd(str(model_path))
     nq = model.nb_q
@@ -183,9 +186,9 @@ def main(show=True):
     # ===========================
     # 2) Enregistrement des données
     # ===========================
-    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy", q_recons)
-    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_sidonie_40W.npy", qdot_recons)
-    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/IK/qddot_inverse_kinematic_sidonie_40W.npy", qddot_recons)
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy", q_recons)
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy", qdot_recons)
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qddot_inverse_kinematic.npy", qddot_recons)
     print("données IK enregistrées :)")
 
     # ===========================
