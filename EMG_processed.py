@@ -11,7 +11,7 @@ import numpy as np
 
 from pyomeca import Analogs
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 

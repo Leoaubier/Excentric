@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 #
@@ -138,6 +138,89 @@ def extract_cycles_generic(signal, peaks):
         out.append(seg_norm)
     return np.array(out)
 
+def plot_segment_grid(
+    dof_name,
+    peaks_sel,
+    tau_list,                  # liste de tau_sel (shape: n_dof x n_frames_sel)
+    labels=None,               # ex: ["RGBD-based", "redundant-Vicon-based", "minimal-Vicon-based"]
+    colors=None,               # ex: ["royalblue", "tomato", "seagreen"]
+    layout=None,
+    n_points=200,
+    ylabel="Torque (N·m)",
+):
+    if layout is None:
+        raise ValueError("layout est requis (dict segment -> liste de (dof, titre)).")
+
+    if labels is None:
+        labels = [f"method {i+1}" for i in range(len(tau_list))]
+    if colors is None:
+        colors = [None] * len(tau_list)  # laisse matplotlib choisir
+
+    # Prépare figure: nb colonnes = max nb de DoF sur une ligne
+    segments = list(layout.keys())
+    n_rows = len(segments)
+    n_cols = max(len(layout[s]) for s in segments)
+
+    fig, axes = plt.subplots(
+        n_rows, n_cols,
+        figsize=(4.2 * n_cols, 2.6 * n_rows),
+        sharex=True
+    )
+    if n_rows == 1:
+        axes = np.array([axes])
+    if n_cols == 1:
+        axes = axes[:, None]
+
+    x = np.linspace(0, 100, n_points)
+
+    for r, seg in enumerate(segments):
+        dofs = layout[seg]
+        for c in range(n_cols):
+            ax = axes[r, c]
+
+            # case vide si la ligne a moins de colonnes
+            if c >= len(dofs):
+                ax.axis("off")
+                continue
+
+            dof, title = dofs[c]
+            if dof not in dof_name:
+                ax.set_title(f"{title}\n(MISSING: {dof})", fontsize=9)
+                ax.axis("off")
+                continue
+
+            idx = dof_name.index(dof)
+
+            # Trace toutes les méthodes
+            for tau_sel, lab, col in zip(tau_list, labels, colors):
+                cyc = extract_cycles_generic(tau_sel[idx, :], peaks_sel)  # (n_cycles, n_points)
+                mean_ = np.mean(cyc, axis=0)
+                std_  = np.std(cyc, axis=0)
+
+                ax.plot(x, mean_, lw=2, label=lab, color=col)
+                ax.fill_between(x, mean_ - std_, mean_ + std_, alpha=0.15, color=col)
+
+            ax.set_title(title, fontsize=10)
+            ax.grid(True, alpha=0.3)
+
+            # Y label seulement sur 1ère colonne de chaque ligne (comme sur ton image)
+            if c == 0:
+                ax.set_ylabel(f"{seg}\n{ylabel}")
+            else:
+                ax.set_ylabel("")
+
+            # X label seulement sur dernière ligne
+            if r == n_rows - 1:
+                ax.set_xlabel("Mean cycle (%)")
+
+    # Une seule légende globale (en haut à droite, comme ton exemple)
+    handles, leg_labels = axes[0, 0].get_legend_handles_labels()
+    if len(handles) > 0:
+        fig.legend(handles, leg_labels, loc="upper right", frameon=False)
+
+    plt.tight_layout(rect=[0, 0, 0.95, 1])  # laisse de la place à la légende
+    plt.show()
+
 def main():
     # Load a predefined model
 
@@ -152,28 +235,9 @@ def main():
     plt.show()
 
     # ----------- Paramètres utilisateur -----------
-    print(dof_name)
-    DOF_TO_PLOT = [#'thorax_translation_TransX',
-                   #'thorax_translation_TransY',
-                   # 'thorax_translation_TransZ',
-                   'thorax_rotation_transform_RotX',
-                   'thorax_rotation_transform_RotY',
-                   'thorax_rotation_transform_RotZ',
-                   'thorax_offset_sternoclavicular_left_r1_RotX',
-                   'thorax_offset_sternoclavicular_left_r2_RotY',
-                   'scapula_left_rotation_transform_RotX',
-                   'scapula_left_rotation_transform_RotY',
-                   'scapula_left_rotation_transform_RotZ',
-                   'scapula_left_offset_shoulder_left_plane_RotX',
-                   'scapula_left_offset_shoulder_left_ele_RotY',
-                   'scapula_left_offset_shoulder_left_rotation_RotZ',
-                   'humerus_left_offset_elbow_left_flexion_RotZ',
-                   'ulna_left_offset_pro_sup_left_RotY',
-                   'hand_left_rotation_transform_RotX',
-                   'hand_left_rotation_transform_RotZ'
-                   ]  # soit "ALL
-    START = 3000  # frame de début (ex : 2000)
-    END = 5000  # frame de fin
+
+    START = 2000  # frame de début (ex : 2000)
+    END = 6000  # frame de fin
 
     # ----------- Sélection plage temporelle --------
     tau_sel = tau[:, START:END]
@@ -218,77 +282,38 @@ def main():
     # === SUBPLOT : COUPLES / FORCES PAR DOF SUR LE CYCLE ===
     # =========================================================
 
+    # ---- Layout : 1 ligne = 1 segment ; chaque élément = (dof_name_exact, "titre subplot")
+    LAYOUT = {
+        "Clavicle": [
+            ("thorax_offset_sternoclavicular_left_r1_RotX", "Pro/retraction"),
+            ("thorax_offset_sternoclavicular_left_r2_RotY", "Depression/Elevation"),
+        ],
+        "Scapula": [
+            ("scapula_left_rotation_transform_RotX", "Pro/retraction"),
+            ("scapula_left_rotation_transform_RotY", "Lat/med rotation"),
+            ("scapula_left_rotation_transform_RotZ", "Tilt"),
+        ],
+        "Humerus": [
+            ("scapula_left_offset_shoulder_left_plane_RotX", "Plane of elevation"),
+            ("scapula_left_offset_shoulder_left_ele_RotY", "Elevation"),
+            ("scapula_left_offset_shoulder_left_rotation_RotZ", "Axial rotation"),
+        ],
+        "Forearm": [
+            ("humerus_left_offset_elbow_left_flexion_RotZ", "Flexion/extension"),
+            ("ulna_left_offset_pro_sup_left_RotY", "Pronation/supination"),
+        ],
+    }
 
-    # ----------- Sélection DoF à tracer ------------
-    if DOF_TO_PLOT == "ALL":
-        selected_dofs = dof_name
-    else:
-        selected_dofs = DOF_TO_PLOT
-
-    # ----------- Construction cycles τ par DoF --------
-    cycles_tau = {}
-    mean_tau = {}
-    std_tau = {}
-
-    for dof in selected_dofs:
-        idx = dof_name.index(dof)
-        cyc = extract_cycles_generic(tau_sel[idx, :], peaks_sel)
-        cycles_tau[dof] = cyc
-        mean_tau[dof] = np.mean(cyc, axis=0)
-        std_tau[dof] = np.std(cyc, axis=0)
-
-    # ----------- Plot final : GRILLE DE SUBPLOTS -------------------------
-
-    import math
-
-    x = np.linspace(0, 100, 200)
-    n_dofs = len(selected_dofs)
-
-    # Définition automatique d'une grille
-    n_cols = math.ceil(math.sqrt(n_dofs))
-    n_rows = math.ceil(n_dofs / n_cols)
-
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(4 * n_cols, 3 * n_rows), sharex=True)
-    axes = axes.flatten()  # pour parcourir facilement
-
-    for ax, dof in zip(axes, selected_dofs):
-
-        # cycles individuels
-        for c in cycles_tau[dof]:
-            ax.plot(x, c, color="gray", alpha=0.25)
-
-        # moyenne
-        ax.plot(x, mean_tau[dof], linewidth=2, color="blue")
-
-        # écart-type
-        ax.fill_between(
-            x,
-            mean_tau[dof] - std_tau[dof],
-            mean_tau[dof] + std_tau[dof],
-            color="blue",
-            alpha=0.15
-        )
-
-        ax.set_title(dof, fontsize=8)
-        ax.set_ylabel("τ (N·m)")
-        ax.grid(True)
-
-    # Supprimer les axes inutilisés si la grille est trop grande
-    for i in range(len(selected_dofs), len(axes)):
-        fig.delaxes(axes[i])
-
-    # Label global
-    plt.xlabel("Cycle (%)")
-    plt.tight_layout()
-    plt.show()
-
-
-
-    plt.plot(tau[14,:], label = "tau flexion coude")
-    plt.plot(np.load(q_path)[14,:], label = "q flexion coude")
-    plt.plot(tau[12,:], label = "tau elevation epaule")
-    plt.legend()
-    plt.show()
+    plot_segment_grid(
+        dof_name=dof_name,
+        peaks_sel=peaks_sel,
+        tau_list=[tau_sel],  # <- une seule méthode pour l'instant
+        labels=[MODE_PEDALAGE + " " + PUISSANCE + " W"],
+        colors=["royalblue"],
+        layout=LAYOUT,
+        n_points=200,
+        ylabel="Torque (N·m)"
+    )
 
 
 

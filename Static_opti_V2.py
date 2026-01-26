@@ -5,13 +5,13 @@ import casadi as ca
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 # ----------------------------
 # Paths
 # ----------------------------
-MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
+MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_Sidonie_last.bioMod"
 
 Q_PATH    = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy"
@@ -21,16 +21,16 @@ EMG_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANC
 # ----------------------------
 # Config
 # ----------------------------
-FIRST, END = 3000, 4000
+FIRST, END = 3000, 3200
 EPS_ACT = 1e-4 # éviter une activation à 0 ou 1
 
 TAU_RES_BND = 2# ±5 Nm
 
+W_TAU = 10e4  # torque tracking
+W_RES = 10e1     # residual torque penalty
+W_EMG = 10e4    # EMG tracking
+W_ACT = 10e0   # activation penalty for non-EMG muscles
 
-W_EMG = 10000000000    # EMG tracking
-W_ACT = 10000   # activation penalty for non-EMG muscles
-W_TAU = 1000000 # torque tracking
-W_RES = 1     # residual torque penalt
 #active_dof = [6,7,8,9,10,11,12,13,14,15]
 active_dof = [6,7,8,9,10,11,12,13,14,15]
 
@@ -462,10 +462,13 @@ def main():
 
 
     err_mean = np.mean(np.abs(tau_err), axis=1)
+    err_std = np.std(np.abs(tau_err), axis=1)
     res_mean = np.mean(np.abs(tau_res), axis=1)
+    res_std = np.std(np.abs(tau_res), axis=1)
+
 
     plt.figure(figsize=(10, 4))
-    plt.bar(np.arange(nbTau), err_mean)
+    plt.bar(np.arange(nbTau), err_mean, yerr = err_std, capsize=5)
     plt.title("Moyenne de |tau_err| par DoF  (τ - (A a + τ_res))")
     plt.xlabel("DoF index")
     plt.ylabel("mean |tau_err|")
@@ -474,7 +477,7 @@ def main():
     plt.show()
 
     plt.figure(figsize=(10, 4))
-    plt.bar(np.arange(nbTau), res_mean)
+    plt.bar(np.arange(nbTau), res_mean, yerr = res_std, capsize=5)
     plt.title("Moyenne de |τ_res| par DoF  (borne ±5 Nm)")
     plt.xlabel("DoF index")
     plt.ylabel("mean |τ_res|")
@@ -589,16 +592,6 @@ def main():
             )
         )
 
-        # tau_err
-        fig.add_trace(
-            go.Scatter(
-                y=tau_from_muscle[i, :],
-                mode="lines",
-                name=f"{i}: tau_act",
-                legendgroup=f"group_{i}",
-                line=dict(dash="dot")
-            )
-        )
         # tau_act_simpl
         fig.add_trace(
             go.Scatter(

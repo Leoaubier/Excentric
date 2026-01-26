@@ -6,7 +6,7 @@ import biorbd_casadi as biorbdc
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
@@ -20,28 +20,35 @@ FIRST, END = 3000, 3200
 TAU_RES_BND = 3.0
 EPS_ACT = 1e-6
 
-W_TAU = 1e6
-W_RES = 1e0
-W_EMG = 1e10
-W_ACT = 1e4
+W_TAU = 1e8
+W_RES = 1e5
+W_EMG = 1e9
+W_ACT = 1e7
+
+DELAY = 50 # en ms (EMG en avance sur activation) : facteur 10
 
 active_dof = [6,7,8,9,10,11,12,13,14,15]
 
 emg_to_muscle = {
     0: "DeltoideusClavicle",
-    1: "DeltoideusScapula_M",
-    2: "DeltoideusScapula_P",
-    3: "TRI_",
-    4: "BIC_",
-    5: "TrapeziusScapula_M",
-    6: "TrapeziusScapula_S",
-    7: "TrapeziusScapula_I",
-    8: "LatissimusDorsi",
-    9: "PectoralisMajor",
+    1: "TRI_med",
+    2: "BIC_long",
+    3: "TrapeziusScapula_M",
+    4: "DeltoideusScapula_M",
+    #5: "TrapeziusScapula_I",
+    6: "LatissimusDorsi_M",
+    7: "PectoralisMajorThorax_M",
+    8: "DeltoideusScapula_P",
+    #10: "TrapeziusScapula_S",
 }
 
 def transpose_if_needed(arr, target_rows):
     return arr if arr.shape[0] == target_rows else arr.T
+
+def ms_to_frame(delay):
+    n_frame = delay/10
+    return n_frame
+
 
 def extract_cycles_generic(signal, peaks):
     out = []
@@ -142,7 +149,7 @@ def main():
     q    = q[:, FIRST:END]
     qdot = qdot[:, FIRST:END]
     tau  = tau[active_dof, FIRST:END]
-    emg  = emg[:, FIRST:END]
+    emg  = emg[:, int(FIRST-ms_to_frame(DELAY)):int(END-ms_to_frame(DELAY))]
 
     print("q shape   :", q.shape)
     print("emg shape :", emg.shape)
@@ -213,10 +220,13 @@ def main():
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/muscle_activations_nonlinear.npy", mus_act)
 
     err_mean = np.mean(np.abs(tau_err), axis=1)
+    err_std = np.std(np.abs(tau_err), axis=1)
     res_mean = np.mean(np.abs(tau_res), axis=1)
+    res_std = np.std(np.abs(tau_res), axis=1)
+
 
     plt.figure(figsize=(10, 4))
-    plt.bar(np.arange(nbTau), err_mean)
+    plt.bar(np.arange(nbTau), err_mean, yerr = err_std, capsize=5)
     plt.title("Moyenne de |tau_err| par DoF  (τ - (A a + τ_res))")
     plt.xlabel("DoF index")
     plt.ylabel("mean |tau_err|")
@@ -225,8 +235,8 @@ def main():
     plt.show()
 
     plt.figure(figsize=(10, 4))
-    plt.bar(np.arange(nbTau), res_mean)
-    plt.title("Moyenne de |τ_res| par DoF  (borne ±5 Nm)")
+    plt.bar(np.arange(nbTau), res_mean, yerr = res_std, capsize=5)
+    plt.title(f"Moyenne de |τ_res| par DoF  (borne ± {TAU_RES_BND} Nm)")
     plt.xlabel("DoF index")
     plt.ylabel("mean |τ_res|")
     plt.grid(True, axis="y")
@@ -299,9 +309,13 @@ def main():
     plt.tight_layout()
     plt.show()
 
+    ### PLOT DES TAU
+
     import plotly.graph_objects as go
 
     fig = go.Figure()
+
+    dof_names = [s.to_string() for s in model_np.nameDof()]
 
     for i in range(nbTau):
         # tau
@@ -310,7 +324,8 @@ def main():
                 y=tau[i, :],
                 mode="lines",
                 name=f"{i}: (tau)",
-                legendgroup=f"group_{i}"
+                legendgroup=f"group_{i}",
+                legendgrouptitle_text=f"{dof_names[i+6]}"
             )
         )
 
@@ -352,6 +367,50 @@ def main():
 
     fig.show()
     # Return results
+
+    # PLOT COMPARATIF ACT VS EMG
+
+    aemg = go.Figure()
+
+    for i, name in enumerate(tracked_names):
+        emg_ch = emg_idx[i]  # ✅ canal EMG correspondant à ce muscle
+        # tau
+        aemg.add_trace(
+            go.Scatter(
+                y=mus_act_emg[i, :],
+                mode="lines",
+                name=f"{i}: {name}",
+                legendgroup=f"group_{i}"
+            )
+        )
+
+        # tau_res
+        aemg.add_trace(
+            go.Scatter(
+                y=emg[emg_ch,:],
+                mode="lines",
+                name=f"EMG ch{emg_ch}",
+                legendgroup=f"group_{i}",
+                line=dict(dash="dash")
+            )
+        )
+
+    aemg.update_layout(
+        title="Activation vs EMG",
+        xaxis_title="Frame",
+        yaxis_title="Activation",
+        hovermode="x unified",
+        legend=dict(
+            itemclick="toggle",
+            itemdoubleclick="toggleothers"
+        ),
+        template="plotly_white",
+        height=500
+    )
+
+    aemg.show()
+
+
 
     #---------- Plot final -----------
     # ==========================================================
@@ -396,6 +455,7 @@ def main():
     import math
 
     x = np.linspace(0, 100, 200)
+
 
     # Définition automatique d'une grille
     n_cols = math.ceil(math.sqrt(nbMus))

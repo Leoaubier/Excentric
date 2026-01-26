@@ -13,7 +13,7 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 
@@ -105,6 +105,138 @@ def extract_cycles(signal_deg, peaks):
         )
         cycles.append(cyc_norm)
     return np.array(cycles)
+
+def plot_cycles_from_layout(
+    signal,             # array (n_dof, n_frames)
+    dof_name,           # liste des noms de DoF (len = n_dof)
+    layout,             # dict {segment: [(dof_full_name, title), ...]}
+    ref_dof_name,       # DoF utilisé pour détecter les cycles
+    first_frame,
+    end_frame,
+    n_points=200,
+    ylabel="Value",
+    distance_peaks=100,
+    labels=None
+):
+    """
+    Trace des cycles normalisés (moyenne ± std + cycles individuels)
+    organisés selon un layout multi-lignes (segments).
+
+    signal        : ndarray (n_dof, n_frames)
+    dof_name      : list[str]
+    layout        : dict segment -> [(dof_full_name, title), ...]
+    ref_dof_name  : nom du DoF servant à détecter les cycles
+    first_frame   : int
+    end_frame     : int or None
+    """
+
+    assert ref_dof_name in dof_name, f"{ref_dof_name} absent de dof_name"
+
+    # -------------------------------------------------
+    # Sélection temporelle
+    # -------------------------------------------------
+    sig_sel = signal[:, first_frame:end_frame]
+
+    # -------------------------------------------------
+    # Détection des cycles
+    # -------------------------------------------------
+    ref_idx = dof_name.index(ref_dof_name)
+    ref_signal = sig_sel[ref_idx, :]
+
+    peaks, _ = find_peaks(ref_signal, distance=distance_peaks)
+    print("Nombre de cycles détectés :", len(peaks) - 1)
+
+    # -------------------------------------------------
+    # Extraction cycles pour chaque DoF du layout
+    # -------------------------------------------------
+    cycles_per_dof = {}
+    mean_per_dof   = {}
+    std_per_dof    = {}
+
+    for seg, items in layout.items():
+        for dof_full, _title in items:
+
+            if dof_full not in dof_name:
+                print(f"[WARN] DoF absent du modèle : {dof_full}")
+                continue
+
+            idx = dof_name.index(dof_full)
+            sig = sig_sel[idx, :]
+
+            cyc = extract_cycles(sig, peaks)   # (n_cycles, n_points)
+
+            cycles_per_dof[dof_full] = cyc
+            mean_per_dof[dof_full]   = np.mean(cyc, axis=0)
+            std_per_dof[dof_full]    = np.std(cyc, axis=0)
+
+    # -------------------------------------------------
+    # Plot grille
+    # -------------------------------------------------
+    x = np.linspace(0, 100, n_points)
+
+    segments = list(layout.keys())
+    n_rows = len(segments)
+    n_cols = max(len(layout[s]) for s in segments)
+
+    fig, axes = plt.subplots(
+        n_rows, n_cols,
+        figsize=(4.2 * n_cols, 2.6 * n_rows),
+        sharex=True
+    )
+
+    if n_rows == 1:
+        axes = np.array([axes])
+    if n_cols == 1:
+        axes = axes[:, None]
+
+    for r, seg in enumerate(segments):
+        row_items = layout[seg]
+
+        for c in range(n_cols):
+            ax = axes[r, c]
+
+            if c >= len(row_items):
+                ax.axis("off")
+                continue
+
+            dof_full, title = row_items[c]
+
+            if dof_full not in cycles_per_dof:
+                ax.set_title(f"{title}\n(MISSING)", fontsize=10)
+                ax.axis("off")
+                continue
+
+            cycles = cycles_per_dof[dof_full]
+            mean_  = mean_per_dof[dof_full]
+            std_   = std_per_dof[dof_full]
+
+            # cycles individuels
+            #for cc in cycles:
+            #    ax.plot(x, cc, color="gray", alpha=0.25, linewidth=1)
+
+            # moyenne + std
+            ax.plot(x, mean_, linewidth=2)
+            ax.fill_between(x, mean_ - std_, mean_ + std_, alpha=0.2)
+
+            ax.set_title(title, fontsize=11)
+            ax.grid(True, alpha=0.3)
+
+            if c == 0:
+                ax.set_ylabel(f"{seg}\n{ylabel}")
+            else:
+                ax.set_ylabel("")
+
+            if r == n_rows - 1:
+                ax.set_xlabel("Mean cycle (%)")
+
+    # Une seule légende globale (en haut à droite, comme ton exemple)
+    handles, leg_labels = axes[0, 0].get_legend_handles_labels()
+    if len(handles) > 0:
+        fig.legend(handles, leg_labels, loc="upper right", frameon=False)
+
+    plt.tight_layout(rect=[0, 0, 0.95, 1])  # laisse de la place à la légende
+    plt.show()
+
 
 
 
@@ -198,61 +330,48 @@ def main(show=True):
     FIRST_FRAME_PLOT = 2000
     END_FRAME_PLOT = 6000
 
+    dof_name = list(model.dof_names)
 
-    peaks, _ = find_peaks(elbow_euler[FIRST_FRAME_PLOT:END_FRAME_PLOT], distance=100)
+    # angles en degrés
+    q_deg = np.rad2deg(np.unwrap(q_recons, axis=1))
 
-    print("Nombre de cycles détectés :", len(peaks) - 1)
-    # Extraire les cycles pour chaque articulation
-    cycles_per_joint = {}
-    mean_per_joint = {}
-    std_per_joint = {}
+    LAYOUT = {
+        "Clavicle": [
+            ("thorax_offset_sternoclavicular_left_r1_RotX", "Pro/retraction"),
+            ("thorax_offset_sternoclavicular_left_r2_RotY", "Depression/Elevation"),
+        ],
+        "Scapula": [
+            ("scapula_left_rotation_transform_RotX", "Pro/retraction"),
+            ("scapula_left_rotation_transform_RotY", "Lat/med rotation"),
+            ("scapula_left_rotation_transform_RotZ", "Tilt"),
+        ],
+        "Humerus": [
+            ("scapula_left_offset_shoulder_left_plane_RotX", "Plane of elevation"),
+            ("scapula_left_offset_shoulder_left_ele_RotY", "Elevation"),
+            ("scapula_left_offset_shoulder_left_rotation_RotZ", "Axial rotation"),
+        ],
+        "Forearm": [
+            ("humerus_left_offset_elbow_left_flexion_RotZ", "Flexion/extension"),
+            ("ulna_left_offset_pro_sup_left_RotY", "Pronation/supination"),
+        ],
+    }
 
-    for name, dof in JOINTS.items():
-        #sig = np.degrees(q_recons[dof, :])
-        cycles = extract_cycles(shoulder_euler[dof,FIRST_FRAME_PLOT:END_FRAME_PLOT], peaks)
-        cycles_per_joint[name] = cycles
-        mean_per_joint[name] = np.mean(cycles, axis=0)
-        std_per_joint[name] = np.std(cycles, axis=0)
-
-    cycles = extract_cycles(elbow_euler[FIRST_FRAME_PLOT:END_FRAME_PLOT], peaks)
-
-    #On ajoute ke coude qui est dans un autre np
-    cycles_per_joint["flexion coude"] = cycles
-    mean_per_joint["flexion coude"] = np.mean(cycles, axis=0)
-    std_per_joint["flexion coude"] = np.std(cycles, axis=0)
     # ===========================
     # 3) SUBPLOTS
     # ===========================
 
-    x = np.linspace(0, 100, 200)
+    plot_cycles_from_layout(
+        signal=q_deg,
+        dof_name=dof_name,
+        layout=LAYOUT,
+        ref_dof_name="humerus_left_offset_elbow_left_flexion_RotZ",
+        first_frame=FIRST_FRAME_PLOT,
+        end_frame=END_FRAME_PLOT,
+        ylabel="Joint angle (°)",
+        distance_peaks=100,
+        labels = [MODE_PEDALAGE + " " + PUISSANCE + " W"]
+    )
 
-    fig, axes = plt.subplots(4, 1, figsize=(10, 10), sharex=True)
-
-    for ax, (name, cycles) in zip(axes, cycles_per_joint.items()):
-
-        # cycles individuels
-        for c in cycles:
-            ax.plot(x, c, color="gray", alpha=0.3)
-
-        # moyenne
-        ax.plot(x, mean_per_joint[name], color="blue", linewidth=2)
-
-        # écart-type
-        ax.fill_between(
-            x,
-            mean_per_joint[name] - std_per_joint[name],
-            mean_per_joint[name] + std_per_joint[name],
-            color="blue", alpha=0.2
-        )
-
-        ax.set_title(name)
-        ax.set_ylabel("Angle (°)")
-        ax.grid(True)
-
-    axes[-1].set_xlabel("Cycle (%)")
-
-    plt.tight_layout()
-    plt.show()
 
 
     # Animate the results if biorbd viz is installed
