@@ -86,6 +86,30 @@ def compute_mode_stats(q, emg, q_index=14, distance=200, n_points=200):
 
     return mean, std, cycles, peaks
 
+def normalize_q_cycles(q_ref, peaks, n_points=200, min_len=15):
+    """
+    q_ref : (n_frames_window,) -> déjà fenêtré si tu as FRAME_START/END
+    peaks : indices dans cette fenêtre
+    return: (n_cycles, n_points)
+    """
+    q_ref = np.asarray(q_ref, dtype=float)
+    cycles = []
+
+    for i in range(len(peaks) - 1):
+        i0, i1 = int(peaks[i]), int(peaks[i+1])
+        if (i1 - i0) < min_len:
+            continue
+
+        seg = q_ref[i0:i1]
+        x_old = np.linspace(0, 1, seg.shape[0])
+        x_new = np.linspace(0, 1, n_points)
+        seg_norm = np.interp(x_new, x_old, seg)
+        cycles.append(seg_norm)
+
+    if len(cycles) == 0:
+        raise RuntimeError("Aucun cycle Q valide pour le plot d'alignement.")
+
+    return np.stack(cycles, axis=0)  # (n_cycles, n_points)
 
 # ============================================================
 # LOAD DATA  (à adapter)
@@ -137,6 +161,32 @@ mean_ecc, std_ecc, cycles_ecc, peaks_ecc = compute_mode_stats(
 
 print(f"Concentrique: {cycles_con.shape[1]} cycles")
 print(f"Excentrique : {cycles_ecc.shape[1]} cycles")
+
+# Normalise les cycles q_ref (ceux que tu as déjà récupérés: qref_con / qref_ecc)
+q_cycles_con = normalize_q_cycles(q_con[14, :], peaks_con, n_points=N_POINTS)
+q_cycles_ecc = normalize_q_cycles(q_ecc[14, :], peaks_ecc, n_points=N_POINTS)
+
+x = np.linspace(0, 100, N_POINTS)
+
+plt.figure(figsize=(12, 4))
+
+# cycles individuels (alpha faible)
+for c in q_cycles_con:
+    plt.plot(x, c, alpha=0.15)
+for c in q_cycles_ecc:
+    plt.plot(x, c, alpha=0.15)
+
+# moyennes (visibles)
+plt.plot(x, q_cycles_con.mean(axis=0), linewidth=2.5, label=f"q_con[14] (moy, N={q_cycles_con.shape[0]})")
+plt.plot(x, q_cycles_ecc.mean(axis=0), linewidth=2.5, label=f"q_ecc[14] (moy, N={q_cycles_ecc.shape[0]})")
+
+plt.title("Vérification alignement des cycles (q[14] normalisé 0–100%)")
+plt.xlabel("% cycle")
+plt.ylabel("q[14] (a.u.)")
+plt.grid(True, alpha=0.3)
+plt.legend(loc="lower right")
+plt.tight_layout()
+plt.show()
 
 
 qref = q_con[14, :]
