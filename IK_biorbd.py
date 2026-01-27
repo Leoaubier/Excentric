@@ -146,6 +146,14 @@ def plot_cycles_from_layout(
     peaks, _ = find_peaks(ref_signal, distance=distance_peaks)
     print("Nombre de cycles détectés :", len(peaks) - 1)
 
+
+    plt.figure(figsize=(12, 3))
+    plt.plot(ref_signal, label="q[14,:]")
+    plt.plot(peaks, ref_signal[peaks], "ro", label="peaks")
+    plt.legend()
+    plt.title(f"q[14,:] + peaks détectés (N={len(peaks)})")
+    plt.show()
+
     # -------------------------------------------------
     # Extraction cycles pour chaque DoF du layout
     # -------------------------------------------------

@@ -5,6 +5,7 @@ import biorbd
 import biorbd_casadi as biorbdc
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
+import warnings
 
 MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
@@ -146,6 +147,11 @@ def main():
     tau  = np.load(TAU_PATH)
     emg  = np.load(EMG_PATH)
 
+    if q.shape == emg.shape:
+        print("Trigger bien détecté")
+    else :
+        warnings.warn("TRIGGER DIFFERENT SUR Q ET EMG : VERIFIER !!")
+
     q    = q[:, FIRST:END]
     qdot = qdot[:, FIRST:END]
     tau  = tau[active_dof, FIRST:END]
@@ -187,7 +193,6 @@ def main():
         lbx = np.concatenate([np.zeros(nbMus), -TAU_RES_BND*np.ones(nbTau)])
         ubx = np.concatenate([np.ones(nbMus),  TAU_RES_BND*np.ones(nbTau)])
 
-
         sol = solver(x0=x0, lbx=lbx, ubx=ubx, p=p)
 
         xopt = np.array(sol["x"]).squeeze()
@@ -203,7 +208,6 @@ def main():
         tau_musc[:,k] = model_np.muscularJointTorque(
             states, q[:,k], qdot[:,k]
         ).to_array()[active_dof]
-
 
         tau_err[:,k] = tau[:,k]-(tau_musc[:,k]+tau_res[:,k])
 
@@ -411,7 +415,6 @@ def main():
     aemg.show()
 
 
-
     #---------- Plot final -----------
     # ==========================================================
     # DÉTECTION DES CYCLES À PARTIR D’UN DOF DE RÉFÉRENCE
@@ -494,9 +497,6 @@ def main():
     plt.xlabel("Cycle (%)")
     plt.tight_layout()
     plt.show()
-
-
-
 
 if __name__ == "__main__":
     main()
