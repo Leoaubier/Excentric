@@ -14,6 +14,7 @@ class Params:
     muscle_idx: int
     dof_idx: int
     activation: float
+    stop: bool = False
 
 
 # -----------------------------
@@ -108,7 +109,10 @@ def viewer_process(model_path: str, q_params: mp.Queue):
     nb_q = model.nbQ()
     qdot = np.zeros((nb_q,))
 
-    rr.init("muscle_torque_explorer", spawn=False)
+    import uuid
+    rr.init("muscle_torque_explorer", spawn=True, recording_id=uuid.uuid4())
+    if hasattr(rr, "Clear"):
+        rr.log("q", rr.Clear(recursive=True))
 
     animation = LiveModelAnimation(model_path, with_q_charts=False)
     print("with_q_charts =", animation.with_q_charts if hasattr(animation, "with_q_charts") else "unknown")
@@ -189,6 +193,9 @@ def viewer_process(model_path: str, q_params: mp.Queue):
             frame += 1
             time.sleep(0.03)
 
+            if getattr(p, "stop", False):
+                return
+
     threading.Thread(target=worker, daemon=True).start()
 
     # IMPORTANT: affiche le modèle + sliders
@@ -221,8 +228,10 @@ def ui_main(model_path: str):
     q_params = mp.Queue()
 
     # lance le viewer dans un process séparé (stable sur macOS)
-    p = mp.Process(target=viewer_process, args=(model_path, q_params), daemon=True)
+    p = mp.Process(target=viewer_process, args=(model_path, q_params))
+    p.daemon = False
     p.start()
+
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
     w = QtWidgets.QWidget()
@@ -261,10 +270,10 @@ def ui_main(model_path: str):
     w.show()
     app.exec()
 
-    # fermeture
+    q_params.put(Params(0, 0, 0.0, stop=True))
+    p.join(timeout=2)
     if p.is_alive():
         p.terminate()
-        p.join(timeout=1)
 
 
 if __name__ == "__main__":
