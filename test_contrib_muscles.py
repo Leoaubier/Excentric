@@ -185,6 +185,13 @@ def viewer_process(model_path: str, q_params: mp.Queue):
             tau = float(tau_arr[cur_dof])
 
             rr_set_frame(frame)
+
+            def finite(x):
+                return float(x) if np.isfinite(x) else float("nan")
+
+            r = finite(r)
+            tau = finite(tau)
+
             rr.log("analysis/moment_arm", rr.Scalar(r))
             rr.log("analysis/tau", rr.Scalar(tau))
             rr.log("analysis/q_selected", rr.Scalar(float(q[cur_dof])))
