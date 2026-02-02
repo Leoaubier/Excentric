@@ -251,7 +251,7 @@ def plot_cycles_from_layout(
 
 def main(show=True):
 
-    model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod")
+    model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod")
     c3d_path = Path(f"/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d")
 
     model = biorbd.Biorbd(str(model_path))

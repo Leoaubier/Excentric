@@ -18,15 +18,20 @@ TAU_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANC
 EMG_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy"
 
 FIRST, END = 3000, 3200
-TAU_RES_BND = 3.0
+RES_BND_know = 2
+RES_BND_unknow = 4
+TAU_RES_BND = np.concatenate((
+    RES_BND_unknow * np.ones(5),
+    RES_BND_know   * np.ones(5)
+))
 EPS_ACT = 1e-6
 
-W_TAU = 1e8
-W_RES = 1e5
-W_EMG = 1e9
-W_ACT = 1e7
+W_TAU = 10000000
+W_RES = 100
+W_EMG = 10000000
+W_ACT = 100000
 
-DELAY = 50 # en ms (EMG en avance sur activation) : facteur 10
+DELAY = 200 # en ms (EMG en avance sur activation) : facteur 10
 
 active_dof = [6,7,8,9,10,11,12,13,14,15]
 
@@ -147,7 +152,7 @@ def main():
     tau  = np.load(TAU_PATH)
     emg  = np.load(EMG_PATH)
 
-    if q.shape == emg.shape:
+    if q.shape[1] == emg.shape[1]:
         print("Trigger bien détecté")
     else :
         warnings.warn("TRIGGER DIFFERENT SUR Q ET EMG : VERIFIER !!")
@@ -190,8 +195,8 @@ def main():
         ])
 
         x0 = np.concatenate([0.1*np.ones(nbMus), np.zeros(nbTau)])
-        lbx = np.concatenate([np.zeros(nbMus), -TAU_RES_BND*np.ones(nbTau)])
-        ubx = np.concatenate([np.ones(nbMus),  TAU_RES_BND*np.ones(nbTau)])
+        lbx = np.concatenate([np.zeros(nbMus), -TAU_RES_BND])
+        ubx = np.concatenate([np.ones(nbMus),  TAU_RES_BND])
 
         sol = solver(x0=x0, lbx=lbx, ubx=ubx, p=p)
 
@@ -222,6 +227,7 @@ def main():
 
     print("Done in", time.time() - t0, "s")
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/muscle_activations_nonlinear.npy", mus_act)
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/muscles_forces.npy", mus_force)
 
     err_mean = np.mean(np.abs(tau_err), axis=1)
     err_std = np.std(np.abs(tau_err), axis=1)
@@ -240,7 +246,7 @@ def main():
 
     plt.figure(figsize=(10, 4))
     plt.bar(np.arange(nbTau), res_mean, yerr = res_std, capsize=5)
-    plt.title(f"Moyenne de |τ_res| par DoF  (borne ± {TAU_RES_BND} Nm)")
+    plt.title(f"Moyenne de |τ_res| par DoF  (borne ± {RES_BND_unknow} and {RES_BND_know} Nm)")
     plt.xlabel("DoF index")
     plt.ylabel("mean |τ_res|")
     plt.grid(True, axis="y")
