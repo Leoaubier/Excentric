@@ -3,10 +3,10 @@ import numpy as np
 import biorbd
 from math import pi
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
-model_path = f'/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod'
+model_path = f'/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_Sidonie_last.bioMod'
 model_pedal_path = f'/Users/leo/Desktop/Projet/modele_opensim/model_pedal.bioMod'
 movement_path = f'/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy'
 movement_pedal_path = f'/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/inverse_kinematic_pedal.npy'

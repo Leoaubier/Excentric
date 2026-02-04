@@ -28,7 +28,7 @@ MODEL_MARKERS = [
     "T10",
     "Clav_SC",
     "Clav_AC",
-    "Clav_Mid",
+   # "Clav_Mid",
     "Scap_AA",
     "Scap_TS",
     "Scap_IA",
@@ -38,11 +38,11 @@ MODEL_MARKERS = [
     "ArmI",
     "Elbow",
     "StylU",
-    "LArmI",
+    #"LArmI",
     "StylR",
-    "Index_Base",
-    "Little_Base",
-    "Hand_Top",
+    #"Index_Base",
+    #"Little_Base",
+    #"Hand_Top",
 ]
 
 def find_trigger(file):
@@ -251,7 +251,7 @@ def plot_cycles_from_layout(
 
 def main(show=True):
 
-    model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod")
+    model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_Sidonie_last.bioMod")
     c3d_path = Path(f"/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d")
 
     model = biorbd.Biorbd(str(model_path))
@@ -291,15 +291,15 @@ def main(show=True):
             print(f"Frame {i}/{n_frames}")
 
     print("IK Kalmann terminé.")
-
-    #q_recons[8, :] = (q_recons[8, :])%(2*pi)
-    #q_recons[11, :] = (q_recons[11, :] - pi)%(2*pi)
-    #q_recons[12, :] = (-q_recons[12, :])%(2*pi)
-    #q_recons[13, :] = (q_recons[13, :] - pi)%(2*pi)
-    #q_recons[14, :] = (q_recons[14, :])%(2*pi)
-    #q_recons[15, :] = (q_recons[15, :])%(2*pi)
-    #q_recons[16, :] = (q_recons[16, :]) % (2 * pi)
-    #q_recons[17, :] = (q_recons[17, :]) % (2 * pi)
+    #q_plot = q_recons
+    #q_plot[8, :] = (q_plot[8, :])%(2*pi)
+    #q_plot[11, :] = (q_plot[11, :] + pi)%(2*pi)
+    #q_plot[12, :] = (-q_plot[12, :])%(2*pi)
+    #q_plot[13, :] = (q_plot[13, :] - pi)
+    #q_plot[14, :] = (q_plot[14, :])%(2*pi)
+    #q_plot[15, :] = (q_plot[15, :])%(2*pi)
+    #q_plot[16, :] = (q_plot[16, :]) % (2 * pi)
+    #q_plot[17, :] = (q_plot[17, :]) % (2 * pi)
 
     q_recons[:,:] = np.unwrap(q_recons[:,:])
     JOINTS = {

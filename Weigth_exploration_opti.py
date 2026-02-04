@@ -10,7 +10,7 @@ import warnings
 MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
-MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
+MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_Sidonie_last.bioMod"
 
 Q_PATH    = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy"
@@ -41,11 +41,11 @@ emg_to_muscle = {
     2: "BIC_long",
     3: "TrapeziusScapula_M",
     4: "DeltoideusScapula_M",
-    #5: "TrapeziusScapula_I",
-    6: "LatissimusDorsi_M",
+    5: "TrapeziusScapula_I",
+    6: "LatissimusDorsi_I",
     7: "PectoralisMajorThorax_M",
     8: "DeltoideusScapula_P",
-    #10: "TrapeziusScapula_S",
+    10: "TrapeziusScapula_S",
 }
 
 def transpose_if_needed(arr, target_rows):

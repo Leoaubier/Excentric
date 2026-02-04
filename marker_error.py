@@ -5,7 +5,7 @@ from matplotlib.widgets import CheckButtons
 import ezc3d
 from pyomeca import Analogs
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 model_path = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"

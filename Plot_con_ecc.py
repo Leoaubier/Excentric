@@ -143,7 +143,7 @@ def plot_grid_mean_std(mean_con, std_con, mean_ecc, std_ecc, muscle_names, y_lab
     n_muscles, n_points = mean_con.shape
     x = np.linspace(0, 100, n_points)
 
-    ncols = 3
+    ncols = 5
     nrows = int(np.ceil(n_muscles / ncols))
     fig, axes = plt.subplots(nrows, ncols, figsize=(15, 4 * nrows), sharex=True)
     axes = axes.flatten()
@@ -192,19 +192,19 @@ if __name__ == "__main__":
     # force_con = np.load("...")[:, FIRST:END]
 
     PUISSANCE = "40"
-    FIRST_FRAME_PLOT = 2000 # --> bien mettre sur les valeurs de static opti V3
-    END_FRAME_PLOT = 6000
+    FIRST_FRAME_PLOT = 3000 # --> bien mettre sur les valeurs de static opti V3
+    END_FRAME_PLOT = 4000
 
     # --- à adapter à tes chemins ---
     model = biorbd.Model("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod")
     muscle_names = [model.muscleNames()[i].to_string() for i in range(int(model.nbMuscles()))]
 
     q_con   = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, FIRST_FRAME_PLOT:END_FRAME_PLOT]
-    act_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/activations.npy")[:, :]
+    act_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :]
     frc_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscles_forces.npy")[:, :]
 
     q_ecc   = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, FIRST_FRAME_PLOT:END_FRAME_PLOT]
-    act_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/activations.npy")[:, :]
+    act_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :]
     frc_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscles_forces.npy")[:, :]
 
     # -------------------------

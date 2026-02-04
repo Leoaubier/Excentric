@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 
