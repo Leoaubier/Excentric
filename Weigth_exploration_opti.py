@@ -7,17 +7,17 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import warnings
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
-MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_Sidonie_last.bioMod"
+MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
 
 Q_PATH    = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy"
 TAU_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
 EMG_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy"
 
-FIRST, END = 3000, 3100
+FIRST, END = 3300, 3400
 RES_BND_know = 2
 RES_BND_unknow = 4
 TAU_RES_BND = np.concatenate((
@@ -35,18 +35,30 @@ DELAY = 50 # en ms (EMG en avance sur activation) : facteur 10
 
 active_dof = [6,7,8,9,10,11,12,13,14,15]
 
+
+W_TAU = 2.4e10
+W_RES = 1.4e7
+W_EMG = 1.2e10
+W_ACT = 1.9e8
+
+DELAY = 50 # en ms (EMG en avance sur activation) : facteur 10
+
+active_dof = [6,7,8,9,10,11,12,13,14,15]
+
 emg_to_muscle = {
     0: "DeltoideusClavicle",
-    1: "TRI_med",
-    2: "BIC_long",
-    3: "TrapeziusScapula_M",
-    4: "DeltoideusScapula_M",
-    5: "TrapeziusScapula_I",
-    6: "LatissimusDorsi_I",
-    7: "PectoralisMajorThorax_M",
-    8: "DeltoideusScapula_P",
-    10: "TrapeziusScapula_S",
+    1: "DeltoideusScapula_M",
+    2: "DeltoideusScapula_P",
+    3: "TrapeziusScapula_S",
+    4: "TRI",
+    5: "BIC",
+    6: "TrapeziusScapula_M",
+    7: "TrapeziusScapula_I",
+    8: "LatissimusDorsi_I",
+    9: "PectoralisMajorThorax_M",
+    #10: "brachio" #pas dans le modèle
 }
+
 
 def transpose_if_needed(arr, target_rows):
     return arr if arr.shape[0] == target_rows else arr.T
@@ -410,7 +422,8 @@ def build_nlp_solver(model_path, nb_mus, nb_tau):
         w_tau * ca.sumsqr(tau_err) +
         w_res * ca.sumsqr(tau_res) +
         w_emg * ca.sumsqr(emg_err) +
-        w_act * ca.sumsqr(a_free)
+        w_act * ca.sumsqr(a_free) +
+        ca.sum(a**9)
     )
 
     solver = ca.nlpsol(
@@ -441,7 +454,7 @@ def main():
     q    = q[:, FIRST:END]
     qdot = qdot[:, FIRST:END]
     tau  = tau[active_dof, FIRST:END]
-    emg  = emg[:, int(FIRST-ms_to_frame(DELAY)):int(END-ms_to_frame(DELAY))]
+    emg  = emg[:, int(FIRST+ms_to_frame(DELAY)):int(END+ms_to_frame(DELAY))]
 
     print("q shape   :", q.shape)
     print("emg shape :", emg.shape)

@@ -12,7 +12,7 @@ import numpy as np
 from pyomeca import Analogs
 
 MODE_PEDALAGE = "eccentric"
-PUISSANCE = "60"
+PUISSANCE = "40"
 
 
 def resample_emg_to_100hz(emg, target_fs=100):
@@ -59,16 +59,16 @@ trigger_name = ['Electric Resistance.1']
 
 mvc_mapping = {
     "delt_ant": "Sensor 1.IM EMG1",
-    "triceps": "Sensor 2.IM EMG2",
-    "biceps": "Sensor 3.IM EMG3",
-    "trap_med": "Sensor 4.IM EMG4",
-    "delt_med": "Sensor 5.IM EMG5",
-    "trap_inf": "Sensor 6.IM EMG6",
-    "gd": "Sensor 7.IM EMG7",
-    "pec": "Sensor 8.IM EMG8",
-    "delt_post": "Sensor 9.IM EMG9",
-    "brachio": "Sensor 10.IM EMG10",
-    "trap_sup": "Sensor 11.IM EMG11",
+    "delt_med": "Sensor 2.IM EMG2",
+    "delt_post": "Sensor 3.IM EMG3",
+    "trap_sup": "Sensor 4.IM EMG4",
+    "triceps": "Sensor 5.IM EMG5",
+    "biceps": "Sensor 6.IM EMG6",
+    "trap_med": "Sensor 7.IM EMG7",
+    "trap_inf": "Sensor 8.IM EMG8",
+    "gd": "Sensor 9.IM EMG9",
+    "pec": "Sensor 10.IM EMG10",
+    "brachio": "Sensor 11.IM EMG11",
 }
 
 emg_names = list(mvc_mapping.values())

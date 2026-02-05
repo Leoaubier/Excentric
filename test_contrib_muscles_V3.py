@@ -9,19 +9,16 @@ import numpy as np
 import biorbd
 
 
-# ============================================================
-# Data exchanged between UI -> viewer
-# ============================================================
+#  Echange de données entre UI et viewer
 @dataclass
 class Params:
-    dof_idx: int                 # index in generalized coordinates/torques space
+    dof_idx: int                 # index du DOF à afficher
     activations: List[float]     # len = nbMuscles
     stop: bool = False
 
 
-# ============================================================
 # Helpers
-# ============================================================
+
 def to_np(x):
     if hasattr(x, "to_array"):
         return np.array(x.to_array())
@@ -29,38 +26,18 @@ def to_np(x):
 
 
 def get_dof_names(model: biorbd.Model):
-    """
-    Retourne une liste de noms pour chaque q (nbQ).
-    Compatible avec plusieurs versions biorbd.
-    """
+    # Retourne une liste de noms pour chaque q (nbQ).
     nb_q = model.nbQ()
     names = []
     for i in range(nb_q):
         name = None
 
-        # 1) nameDof(i)
         if hasattr(model, "nameDof"):
             try:
                 v = model.nameDof()[i]
                 name = v.to_string() if hasattr(v, "to_string") else str(v)
             except Exception:
                 pass
-
-        # 2) variantes
-        if name is None:
-            for attr in ("nameQ", "dofNames", "qNames", "dof_names"):
-                if hasattr(model, attr):
-                    try:
-                        obj = getattr(model, attr)
-                        if callable(obj):
-                            v = obj(i)  # ex: nameQ(i)
-                            name = v.to_string() if hasattr(v, "to_string") else str(v)
-                        else:
-                            v = obj[i]
-                            name = v.to_string() if hasattr(v, "to_string") else str(v)
-                        break
-                    except Exception:
-                        pass
 
         if not name or name.strip() == "":
             name = f"q{i}"
@@ -80,9 +57,7 @@ def get_muscle_names(model: biorbd.Model):
     return names
 
 
-# ============================================================
-# Viewer process (pyorerun + rerun + compute)
-# ============================================================
+
 def viewer_process(model_path: str, q_params: mp.Queue):
     import threading
     import rerun as rr
@@ -123,7 +98,6 @@ def viewer_process(model_path: str, q_params: mp.Queue):
             EPS_ACTIVE = 1e-3
 
             while True:
-                # Drain queue, keep latest
                 try:
                     while True:
                         cur = q_params.get_nowait()
@@ -133,7 +107,7 @@ def viewer_process(model_path: str, q_params: mp.Queue):
                 if getattr(cur, "stop", False):
                     return
 
-                # --- Read q from LiveModelAnimation ---
+                # Récupère Q from LiveModelAnimation
                 q = None
                 if hasattr(animation, "_q"):
                     q = np.asarray(animation._q, dtype=float).reshape((-1,))
@@ -150,11 +124,11 @@ def viewer_process(model_path: str, q_params: mp.Queue):
                 if acts.shape[0] != nb_mus:
                     acts = np.zeros((nb_mus,), dtype=float)
 
-                # --- moment arms (all muscles for selected dof) ---
+                # moment arms
                 J = to_np(model.musclesLengthJacobian(q))
                 r_all = -np.asarray(J[:, dof], dtype=float).reshape((-1,))
 
-                # --- total torque with all activations ---
+                # torque total
                 states_all = build_states(acts)
                 if hasattr(model, "muscularJointTorque"):
                     tau_vec = model.muscularJointTorque(states_all, q, qdot)
@@ -174,7 +148,7 @@ def viewer_process(model_path: str, q_params: mp.Queue):
                 except Exception:
                     rr.log("analysis/selected_dof/name", rr.TextLog(f"DoF: {dof_name} (index {dof})"))
 
-                # --- per-muscle contribution + ranking ---
+                # contribution par muscle + ranking
                 active_ids = np.where(acts > EPS_ACTIVE)[0]
                 contribs: List[Tuple[int, float, float, float]] = []  # (m, tau_m, r_m, a_m)
 
@@ -197,7 +171,7 @@ def viewer_process(model_path: str, q_params: mp.Queue):
                     # logs individuels (optionnel)
                     rr.log(f"analysis/muscles/{m:02d}/tau", rr.Scalar(tau_m))
 
-                # TOP N
+                # TOP N des muscles
                 contribs.sort(key=lambda t: abs(t[1]), reverse=True)
                 top = contribs[:TOP_N]
 
@@ -239,9 +213,7 @@ def viewer_process(model_path: str, q_params: mp.Queue):
         raise
 
 
-# ============================================================
 # UI (PyQt5) - only DoF + muscles
-# ============================================================
 def pick_biomod_file() -> str | None:
     from PyQt5 import QtWidgets
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
@@ -340,7 +312,7 @@ def ui_main(model_path: str):
     # Controls
     btn_all_off = QtWidgets.QPushButton("All OFF")
     btn_all_on = QtWidgets.QPushButton("All ON (0.30)")
-    btn_send_once = QtWidgets.QPushButton("Send now")
+    btn_send_once = QtWidgets.QPushButton("Send now") #pas utile pour l'instant
 
     def all_off():
         for i in range(nb_mus):
@@ -361,7 +333,7 @@ def ui_main(model_path: str):
     btn_row.addWidget(btn_send_once)
     main_layout.addLayout(btn_row)
 
-    # ---------------- Sending params ----------------
+    # params
     def collect_params() -> Params:
         dof = dof_cb.currentIndex()
         acts = []

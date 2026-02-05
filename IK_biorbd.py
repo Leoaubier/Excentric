@@ -13,7 +13,7 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
 
@@ -28,7 +28,7 @@ MODEL_MARKERS = [
     "T10",
     "Clav_SC",
     "Clav_AC",
-   # "Clav_Mid",
+    "Clav_Mid",
     "Scap_AA",
     "Scap_TS",
     "Scap_IA",
@@ -38,11 +38,11 @@ MODEL_MARKERS = [
     "ArmI",
     "Elbow",
     "StylU",
-    #"LArmI",
+    "LArmI",
     "StylR",
-    #"Index_Base",
-    #"Little_Base",
-    #"Hand_Top",
+    "Index_Base",
+    "Little_Base",
+    "Hand_Top",
 ]
 
 def find_trigger(file):
@@ -251,7 +251,7 @@ def plot_cycles_from_layout(
 
 def main(show=True):
 
-    model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_Sidonie_last.bioMod")
+    model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod")
     c3d_path = Path(f"/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d")
 
     model = biorbd.Biorbd(str(model_path))
@@ -335,8 +335,8 @@ def main(show=True):
     # 4) Extraction & normalisation des cycles
     # ===========================
 
-    FIRST_FRAME_PLOT = 2000
-    END_FRAME_PLOT = 6000
+    FIRST_FRAME_PLOT = 3000
+    END_FRAME_PLOT = 4800
 
     dof_name = list(model.dof_names)
 

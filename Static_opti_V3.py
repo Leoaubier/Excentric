@@ -7,17 +7,17 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import warnings
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
-MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_Sidonie_last.bioMod"
+MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
 
 Q_PATH    = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy"
 TAU_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
 EMG_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy"
 
-FIRST, END = 3000, 3400
+FIRST, END = 3000, 4000
 RES_BND_know = 2.5
 RES_BND_unknow = 4
 TAU_RES_BND = np.concatenate((
@@ -26,27 +26,29 @@ TAU_RES_BND = np.concatenate((
 ))
 EPS_ACT = 1e-6
 
-W_TAU = 7.5e4
-W_RES = 1.3e1
-W_EMG = 1.4e5
-W_ACT = 2.2e4
+W_TAU = 2.6e10
+W_RES = 1.3e8
+W_EMG = 2.5e10
+W_ACT = 2.5e8
 
-DELAY = 50 # en ms (EMG en avance sur activation) : facteur 10
+DELAY = 30 # en ms (EMG en avance sur activation) : facteur 10
 
 active_dof = [6,7,8,9,10,11,12,13,14,15]
 
 emg_to_muscle = {
     0: "DeltoideusClavicle",
-    1: "TRI_med",
-    2: "BIC_long",
-    3: "TrapeziusScapula_M",
-    4: "DeltoideusScapula_M",
-    5: "TrapeziusScapula_I",
-    6: "LatissimusDorsi_I",
-    7: "PectoralisMajorThorax_M",
-    8: "DeltoideusScapula_P",
-    10: "TrapeziusScapula_S",
+    1: "DeltoideusScapula_M",
+    2: "DeltoideusScapula_P",
+    3: "TrapeziusScapula_S",
+    4: "TRI",
+    5: "BIC",
+    6: "TrapeziusScapula_M",
+    7: "TrapeziusScapula_I",
+    8: "LatissimusDorsi",
+    9: "Pectoralis",
+    #10: "brachio" #pas dans le modèle
 }
+
 
 def transpose_if_needed(arr, target_rows):
     return arr if arr.shape[0] == target_rows else arr.T
@@ -127,7 +129,8 @@ def build_nlp_solver(model_path, nb_mus, nb_tau):
         w_tau * ca.sumsqr(tau_err) +
         w_res * ca.sumsqr(tau_res) +
         w_emg * ca.sumsqr(emg_err) +
-        w_act * ca.sumsqr(a_free)
+        w_act * ca.sumsqr(a_free) +
+        ca.sum(a**9)
     )
 
     solver = ca.nlpsol(
@@ -160,7 +163,7 @@ def main():
     q    = q[:, FIRST:END]
     qdot = qdot[:, FIRST:END]
     tau  = tau[active_dof, FIRST:END]
-    emg  = emg[:, int(FIRST-ms_to_frame(DELAY)):int(END-ms_to_frame(DELAY))]
+    emg  = emg[:, int(FIRST+ms_to_frame(DELAY)):int(END+ms_to_frame(DELAY))]
 
     print("q shape   :", q.shape)
     print("emg shape :", emg.shape)
@@ -244,12 +247,39 @@ def main():
     plt.tight_layout()
     plt.show()
 
+    max_tau = np.max(np.abs(tau), axis=1)
+    rap_res_tau = (res_mean/max_tau)*100
+
+    x = np.arange(nbTau)
+
     plt.figure(figsize=(10, 4))
-    plt.bar(np.arange(nbTau), res_mean, yerr = res_std, capsize=5)
+    bars = plt.bar(x, res_mean, yerr=res_std, capsize=5)
+
     plt.title(f"Moyenne de |τ_res| par DoF  (borne ± {RES_BND_unknow} and {RES_BND_know} Nm)")
     plt.xlabel("DoF index")
     plt.ylabel("mean |τ_res|")
     plt.grid(True, axis="y")
+    # =========================
+    # Affichage du % au-dessus des barres
+    # =========================
+    for i, bar in enumerate(bars):
+        if float(rap_res_tau[i]) < 15:
+            A = 'green'
+        elif 15 <= float(rap_res_tau[i]) < 20:
+            A = 'y'
+        else:
+            A = 'red'
+        height = bar.get_height()
+        plt.text(
+            bar.get_x() + bar.get_width() / 2,
+            height + res_std[i] + 0.02 * np.max(res_mean),  # petit offset au-dessus
+            f"{rap_res_tau[i]:.1f} %",
+            ha='center',
+            va='bottom',
+            fontsize=9,
+            fontweight='bold',
+            color = A
+        )
     plt.tight_layout()
     plt.show()
 

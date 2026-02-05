@@ -4,96 +4,142 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
 # ============================================================
-# Cycle detection (même base que toi)
+# Cycle detection from crank angle (wrap 2pi)
 # ============================================================
-def detect_cycles_from_q(q_ref, distance=100, prominence=None):
-    q_ref = np.asarray(q_ref, dtype=float)
-    if prominence is None:
-        prominence = 0.2 * np.std(q_ref)
-
-    peaks, _ = find_peaks(q_ref, distance=distance, prominence=prominence)
-
-    if len(peaks) < 2:
-        raise RuntimeError("Pas assez de cycles détectés (len(peaks)<2).")
-
-    return peaks
-
-
-# ============================================================
-# Normalisation par cycle (générique multi-signaux)
-# ============================================================
-def normalize_cycles(signals, peaks, n_points=200, min_len=15):
+def detect_cycles_from_crank(crank_angle, min_cycle_frames=30):
     """
-    signals : (n_signals, n_frames)
-    peaks   : indices pics (dans la fenêtre)
-    return  : (n_signals, n_cycles, n_points)
+    Détecte les cycles par passage 2π -> 0 (wrap naturel).
+    Fonctionne pour con et ecc automatiquement.
     """
-    signals = np.asarray(signals, dtype=float)
-    n_signals, _ = signals.shape
+    a = np.asarray(crank_angle, float)
+
+    # différence brute
+    da = np.diff(a)
+
+    # seuil de wrap (plus robuste que -pi)
+    threshold = np.pi
+
+    # si rotation positive (concentrique)
+    if np.median(da) > 0:
+        wraps = np.where(da < -threshold)[0] + 1
+    else:
+        wraps = np.where(da > threshold)[0] + 1
+
+    if wraps.size == 0:
+        raise RuntimeError("Aucun wrap détecté dans crank_angle.")
+
+    # filtrer cycles trop courts
+    good = [wraps[0]]
+    for s in wraps[1:]:
+        if s - good[-1] >= min_cycle_frames:
+            good.append(s)
+
+    starts = np.array(good, dtype=int)
+
+    if starts.size < 2:
+        raise RuntimeError("Pas assez de cycles détectés.")
+
+    return starts
+
+
+
+# ============================================================
+# Normalisation par angle (générique multi-signaux)
+# ============================================================
+def normalize_cycles_by_crank(signals, crank_angle, cycle_starts, n_points=360, min_samples=10):
+    """
+    signals     : (n_signals, n_frames)
+    crank_angle : (n_frames,) en rad
+    cycle_starts: indices début de cycles
+    return      : cycles (n_signals, n_cycles, n_points), angle_grid (n_points,)
+    """
+    signals = np.asarray(signals, float)
+    a = np.unwrap(np.asarray(crank_angle, float))
+
+    # sens de rotation: on force rampe croissante
+    if np.median(np.diff(a)) < 0:
+        a = -a
+
+    a = a - a[0]  # départ à 0
+
+    n_signals, T = signals.shape
+    angle_grid = np.linspace(0.0, 2*np.pi, n_points, endpoint=False)
+    grid_0_2pi = (angle_grid + 2*np.pi) % (2*np.pi)
 
     cycles = []
-    for i in range(len(peaks) - 1):
-        i0, i1 = int(peaks[i]), int(peaks[i + 1])
-        if (i1 - i0) < min_len:
+    for i in range(len(cycle_starts) - 1):
+        i0 = int(cycle_starts[i])
+        i1 = int(cycle_starts[i + 1])
+
+        seg_s = signals[:, i0:i1]
+        seg_a = a[i0:i1] - a[i0]  # commence à 0
+
+        # garder 1 tour
+        mask = seg_a < 2*np.pi
+        if np.sum(mask) < min_samples:
             continue
 
-        seg = signals[:, i0:i1]  # (n_signals, seg_len)
-        x_old = np.linspace(0, 1, seg.shape[1])
-        x_new = np.linspace(0, 1, n_points)
+        seg_a = seg_a[mask]
+        seg_s = seg_s[:, mask]
 
+        # interp (seg_a croissant)
         seg_norm = np.zeros((n_signals, n_points))
         for k in range(n_signals):
-            seg_norm[k] = np.interp(x_new, x_old, seg[k])
+            seg_norm[k] = np.interp(grid_0_2pi, seg_a, seg_s[k])
 
         cycles.append(seg_norm)
 
     if len(cycles) == 0:
-        raise RuntimeError("Aucun cycle valide après filtrage min_len.")
+        raise RuntimeError("Aucun cycle valide (après filtrage).")
 
-    return np.stack(cycles, axis=1)  # (n_signals, n_cycles, n_points)
+    cycles = np.stack(cycles, axis=1)  # (n_signals, n_cycles, n_points)
+    return cycles, angle_grid
 
 
-def normalize_1d_cycles(q_ref, peaks, n_points=200, min_len=15):
-    """q_ref : (n_frames,) -> (n_cycles, n_points)"""
-    q_ref = np.asarray(q_ref, dtype=float).reshape(1, -1)
-    cyc = normalize_cycles(q_ref, peaks, n_points=n_points, min_len=min_len)  # (1, n_cycles, n_points)
-    return cyc[0]  # (n_cycles, n_points)
+def normalize_1d_cycles_by_crank(sig_1d, crank_angle, cycle_starts, n_points=360):
+    sig_1d = np.asarray(sig_1d, float).reshape(1, -1)
+    cyc, angle_grid = normalize_cycles_by_crank(sig_1d, crank_angle, cycle_starts, n_points=n_points)
+    return cyc[0], angle_grid  # (n_cycles, n_points), (n_points,)
 
 
 # ============================================================
-# Stats par mode (activations + forces) avec mêmes cycles
+# Stats par mode (activations + forces) avec mêmes cycles (crank)
 # ============================================================
-def compute_mode_cycle_stats(
-    q, activations, forces,
-    q_index_ref=14,
-    distance=100,
-    prominence=None,
-    n_points=200,
-    min_len=15,
+def compute_mode_cycle_stats_crank(
+    q, activations, forces, crank_angle,
+    min_cycle_frames=30,
+    n_points=360,
 ):
     """
-    q           : (nbQ, n_frames)
+    q           : (nbQ, n_frames)   (optionnel pour plots/diagnostic)
     activations : (nbMuscles, n_frames)
     forces      : (nbMuscles, n_frames)
+    crank_angle : (n_frames,)
     """
-    q = np.asarray(q, dtype=float)
-    activations = np.asarray(activations, dtype=float)
-    forces = np.asarray(forces, dtype=float)
+    q = np.asarray(q, float)
+    activations = np.asarray(activations, float)
+    forces = np.asarray(forces, float)
+    crank_angle = np.asarray(crank_angle, float)
 
-    if q.shape[1] != activations.shape[1] or q.shape[1] != forces.shape[1]:
-        raise ValueError("q, activations, forces doivent avoir le même n_frames (axis=1).")
+    if q.shape[1] != activations.shape[1] or q.shape[1] != forces.shape[1] or q.shape[1] != crank_angle.shape[0]:
+        raise ValueError("q, activations, forces, crank_angle doivent avoir le même n_frames.")
     if activations.shape != forces.shape:
-        raise ValueError("activations et forces doivent avoir la même shape (nbMuscles, n_frames).")
+        raise ValueError("activations et forces doivent avoir la même shape.")
 
-    q_ref = q[q_index_ref, :]
-    peaks = detect_cycles_from_q(q_ref, distance=distance, prominence=prominence)
+    starts = detect_cycles_from_crank(crank_angle, min_cycle_frames=min_cycle_frames)
 
-    act_cycles = normalize_cycles(activations, peaks, n_points=n_points, min_len=min_len)
-    frc_cycles = normalize_cycles(forces, peaks, n_points=n_points, min_len=min_len)
+    act_cycles, angle_grid = normalize_cycles_by_crank(activations, crank_angle, starts, n_points=n_points)
+    frc_cycles, _          = normalize_cycles_by_crank(forces,      crank_angle, starts, n_points=n_points)
+
+    # (optionnel) normaliser aussi un q de réf pour vérifier l'alignement
+    # ici on prend q[14] par défaut si dispo
+    q_ref = q[14, :] if q.shape[0] > 14 else q[0, :]
+    q_cycles, _ = normalize_1d_cycles_by_crank(q_ref, crank_angle, starts, n_points=n_points)
 
     stats = {
-        "peaks": peaks,
-        "q_cycles": normalize_1d_cycles(q_ref, peaks, n_points=n_points, min_len=min_len),
+        "starts": starts,
+        "angle_grid": angle_grid,
+        "q_cycles": q_cycles,
         "act_cycles": act_cycles,
         "frc_cycles": frc_cycles,
         "act_mean": act_cycles.mean(axis=1),
@@ -107,31 +153,33 @@ def compute_mode_cycle_stats(
 # ============================================================
 # Plot helpers
 # ============================================================
-def plot_q_alignment(q_cycles_con, q_cycles_ecc, title):
-    x = np.linspace(0, 100, q_cycles_con.shape[1])
+def plot_q_alignment_angle(q_cycles_con, q_cycles_ecc, angle_grid, title):
+    x_deg = (np.rad2deg(angle_grid) % 360)
 
     plt.figure(figsize=(12, 4))
     for c in q_cycles_con:
-        plt.plot(x, c, alpha=0.15)
+        plt.plot(x_deg, c, alpha=0.15)
     for c in q_cycles_ecc:
-        plt.plot(x, c, alpha=0.15)
+        plt.plot(x_deg, c, alpha=0.15)
 
-    plt.plot(x, q_cycles_con.mean(axis=0), linewidth=2.5, label=f"con (moy, N={q_cycles_con.shape[0]})")
-    plt.plot(x, q_cycles_ecc.mean(axis=0), linewidth=2.5, label=f"ecc (moy, N={q_cycles_ecc.shape[0]})")
+    plt.plot(x_deg, q_cycles_con.mean(axis=0), linewidth=2.5, label=f"con (moy, N={q_cycles_con.shape[0]})")
+    plt.plot(x_deg, q_cycles_ecc.mean(axis=0), linewidth=2.5, label=f"ecc (moy, N={q_cycles_ecc.shape[0]})")
 
     plt.title(title)
-    plt.xlabel("% cycle")
+    plt.xlabel("Angle pédalier (deg)")
     plt.ylabel("q_ref (a.u.)")
+    plt.xlim(0, 360)
     plt.grid(True, alpha=0.3)
     plt.legend(loc="lower right")
     plt.tight_layout()
     plt.show()
 
 
-def plot_q_with_peaks(q_ref, peaks, title):
+def plot_crank_with_starts(crank_angle, starts, title):
+    a = np.asarray(crank_angle, float)
     plt.figure(figsize=(12, 3))
-    plt.plot(q_ref, label="q_ref")
-    plt.plot(peaks, q_ref[peaks], "ro", label="peaks")
+    plt.plot(a, label="crank_angle (rad)")
+    plt.plot(starts, a[starts], "ro", label="cycle starts")
     plt.title(title)
     plt.legend(loc="lower right")
     plt.grid(True, alpha=0.3)
@@ -139,36 +187,37 @@ def plot_q_with_peaks(q_ref, peaks, title):
     plt.show()
 
 
-def plot_grid_mean_std(mean_con, std_con, mean_ecc, std_ecc, muscle_names, y_label, suptitle):
+def plot_grid_mean_std_angle(mean_con, std_con, mean_ecc, std_ecc, muscle_names, angle_grid, y_label, suptitle):
     n_muscles, n_points = mean_con.shape
-    x = np.linspace(0, 100, n_points)
+    x_deg = (np.rad2deg(angle_grid) % 360)
 
     ncols = 5
     nrows = int(np.ceil(n_muscles / ncols))
     fig, axes = plt.subplots(nrows, ncols, figsize=(15, 4 * nrows), sharex=True)
-    axes = axes.flatten()
+    axes = np.atleast_1d(axes).flatten()
 
     for m in range(n_muscles):
         ax = axes[m]
 
-        ax.plot(x, mean_con[m], label="Concentrique")
-        ax.fill_between(x, mean_con[m] - std_con[m], mean_con[m] + std_con[m], alpha=0.25)
+        ax.plot(x_deg, mean_con[m], label="Concentrique")
+        ax.fill_between(x_deg, mean_con[m] - std_con[m], mean_con[m] + std_con[m], alpha=0.25)
 
-        ax.plot(x, mean_ecc[m], label="Excentrique")
-        ax.fill_between(x, mean_ecc[m] - std_ecc[m], mean_ecc[m] + std_ecc[m], alpha=0.25)
+        ax.plot(x_deg, mean_ecc[m], label="Excentrique")
+        ax.fill_between(x_deg, mean_ecc[m] - std_ecc[m], mean_ecc[m] + std_ecc[m], alpha=0.25)
 
         ax.set_title(muscle_names[m] if muscle_names is not None else f"muscle_{m}")
-        ax.set_xlabel("% cycle")
+        ax.set_xlabel("Angle pédalier (deg)")
         ax.set_ylabel(y_label)
+        ax.set_xlim(0, 360)
         ax.grid(True, alpha=0.3)
 
+    # Supprimer axes vides
     for k in range(n_muscles, len(axes)):
         fig.delaxes(axes[k])
 
+    # Légende globale
     handles, labels = axes[0].get_legend_handles_labels()
-
     fig.subplots_adjust(top=0.92, bottom=0.08, hspace=0.35, wspace=0.25)
-
     fig.legend(handles, labels, loc="lower right", bbox_to_anchor=(0.98, 0.02),
                frameon=True, fontsize=11)
 
@@ -176,109 +225,82 @@ def plot_grid_mean_std(mean_con, std_con, mean_ecc, std_ecc, muscle_names, y_lab
     plt.show()
 
 
+
 # ============================================================
 # MAIN (à brancher sur tes arrays)
 # ============================================================
 if __name__ == "__main__":
-    # -------------------------
-    # Inputs (tu remplaces par tes chargements)
-    # -------------------------
-    # q_con, act_con, force_con : (.., n_frames)
-    # q_ecc, act_ecc, force_ecc : (.., n_frames)
-    #
-    # Example:
-    # q_con = np.load("...")[:, FIRST:END]
-    # act_con = np.load("...")[:, FIRST:END]
-    # force_con = np.load("...")[:, FIRST:END]
-
     PUISSANCE = "40"
-    FIRST_FRAME_PLOT = 3000 # --> bien mettre sur les valeurs de static opti V3
+    FIRST_FRAME_PLOT = 3000
     END_FRAME_PLOT = 4000
+    n_frame = END_FRAME_PLOT - FIRST_FRAME_PLOT
 
-    # --- à adapter à tes chemins ---
-    model = biorbd.Model("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod")
+    model = biorbd.Model("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod")
     muscle_names = [model.muscleNames()[i].to_string() for i in range(int(model.nbMuscles()))]
 
+    # --- Concentrique ---
     q_con   = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, FIRST_FRAME_PLOT:END_FRAME_PLOT]
-    act_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :]
-    frc_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscles_forces.npy")[:, :]
+    act_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :n_frame]
+    frc_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscles_forces.npy")[:, :n_frame]
+    crank_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/crank_angle.npy")[FIRST_FRAME_PLOT:END_FRAME_PLOT]
 
+    # --- Excentrique ---
     q_ecc   = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, FIRST_FRAME_PLOT:END_FRAME_PLOT]
-    act_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :]
-    frc_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscles_forces.npy")[:, :]
+    act_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :n_frame]
+    frc_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscles_forces.npy")[:, :n_frame]
+    crank_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/crank_angle.npy")[FIRST_FRAME_PLOT:END_FRAME_PLOT]
 
-    # -------------------------
+    # Checks
+    assert q_con.shape[1] == crank_con.shape[0]
+    assert q_ecc.shape[1] == crank_ecc.shape[0]
+    assert act_con.shape[1] == crank_con.shape[0]
+    assert act_ecc.shape[1] == crank_ecc.shape[0]
+
     # Params
-    # -------------------------
-    Q_INDEX_REF = 14
-    DISTANCE = 100
-    PROM = None
-    N_POINTS = 200
-    MIN_LEN = 15
+    N_POINTS = 360
+    MIN_CYCLE_FRAMES = 30
 
-    # -------------------------
-    # Compute stats
-    # -------------------------
-    stats_con = compute_mode_cycle_stats(
-        q_con, act_con, frc_con,
-        q_index_ref=Q_INDEX_REF,
-        distance=DISTANCE,
-        prominence=PROM,
+    # Compute stats (cycles via crank_angle)
+    stats_con = compute_mode_cycle_stats_crank(
+        q_con, act_con, frc_con, crank_con,
+        min_cycle_frames=MIN_CYCLE_FRAMES,
         n_points=N_POINTS,
-        min_len=MIN_LEN,
     )
-
-    stats_ecc = compute_mode_cycle_stats(
-        q_ecc, act_ecc, frc_ecc,
-        q_index_ref=Q_INDEX_REF,
-        distance=DISTANCE,
-        prominence=PROM,
+    stats_ecc = compute_mode_cycle_stats_crank(
+        q_ecc, act_ecc, frc_ecc, crank_ecc,
+        min_cycle_frames=MIN_CYCLE_FRAMES,
         n_points=N_POINTS,
-        min_len=MIN_LEN,
     )
 
     print(f"Concentrique: {stats_con['act_cycles'].shape[1]} cycles")
     print(f"Excentrique : {stats_ecc['act_cycles'].shape[1]} cycles")
-    print("diff(peaks_con) median:", np.median(np.diff(stats_con["peaks"])) if len(stats_con["peaks"]) > 1 else None)
-    print("diff(peaks_ecc) median:", np.median(np.diff(stats_ecc["peaks"])) if len(stats_ecc["peaks"]) > 1 else None)
 
-    # -------------------------
-    # Plots : alignement cycles q
-    # -------------------------
-    plot_q_alignment(
-        stats_con["q_cycles"],
-        stats_ecc["q_cycles"],
-        title=f"Vérification alignement cycles (q[{Q_INDEX_REF}] normalisé 0–100%)"
+    # Plots : check cycles
+    plot_q_alignment_angle(
+        stats_con["q_cycles"], stats_ecc["q_cycles"],
+        stats_con["angle_grid"],
+        title=f"Vérification alignement cycles (q_ref normalisé sur angle pédalier)"
     )
 
-    plot_q_with_peaks(
-        q_con[Q_INDEX_REF, :], stats_con["peaks"],
-        title=f"Concentrique — q[{Q_INDEX_REF}] + peaks (N={len(stats_con['peaks'])})"
-    )
+    plot_crank_with_starts(crank_con, stats_con["starts"], title=f"Concentrique — crank_angle + starts (N={len(stats_con['starts'])})")
+    plot_crank_with_starts(crank_ecc, stats_ecc["starts"], title=f"Excentrique — crank_angle + starts (N={len(stats_ecc['starts'])})")
 
-    plot_q_with_peaks(
-        q_ecc[Q_INDEX_REF, :], stats_ecc["peaks"],
-        title=f"Excentrique — q[{Q_INDEX_REF}] + peaks (N={len(stats_ecc['peaks'])})"
-    )
-
-    # -------------------------
-    # Plots : activations (mean ± std)
-    # -------------------------
-    plot_grid_mean_std(
+    # Activations
+    plot_grid_mean_std_angle(
         stats_con["act_mean"], stats_con["act_std"],
         stats_ecc["act_mean"], stats_ecc["act_std"],
         muscle_names=muscle_names,
+        angle_grid=stats_con["angle_grid"],
         y_label="Activation",
-        suptitle=f"Activations — Concentrique vs Excentrique (cycles via q[{Q_INDEX_REF}]) à {PUISSANCE}W"
+        suptitle=f"Activations — Concentrique vs Excentrique (abscisse = angle pédalier) à {PUISSANCE}W"
     )
 
-    # -------------------------
-    # Plots : forces (mean ± std)
-    # -------------------------
-    plot_grid_mean_std(
+    # Forces
+    plot_grid_mean_std_angle(
         stats_con["frc_mean"], stats_con["frc_std"],
         stats_ecc["frc_mean"], stats_ecc["frc_std"],
         muscle_names=muscle_names,
+        angle_grid=stats_con["angle_grid"],
         y_label="Force musculaire (N)",
-        suptitle=f"Forces musculaires — Concentrique vs Excentrique (cycles via q[{Q_INDEX_REF}]) à {PUISSANCE}W"
+        suptitle=f"Forces musculaires — Concentrique vs Excentrique (abscisse = angle pédalier) à {PUISSANCE}W"
     )

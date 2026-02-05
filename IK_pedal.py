@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
 
@@ -121,7 +121,7 @@ def to_dic(all_data_int):
                 }
     return dic_data
 
-def transform_forces_to_global(model, q_recons, F_local, M_local,
+def transform_forces_to_global(model, q_recons, F_local, M_local, angle_local,
                                fs_high=250, fs_low=100, mode="nearest"):
     """
     Transforme les forces/moments en coordonnées globales, en recalent les signaux 250 Hz sur 100 Hz.
@@ -163,6 +163,10 @@ def transform_forces_to_global(model, q_recons, F_local, M_local,
             np.interp(t_low, t_high, M_local[i, :])
             for i in range(3)
         ])
+        angle_resampled = np.vstack([
+            np.interp(t_low, t_high, angle_local[i])
+            for i in range(3)
+        ])
 
     elif mode == "nearest":
         # index du point 250 Hz le plus proche
@@ -177,11 +181,13 @@ def transform_forces_to_global(model, q_recons, F_local, M_local,
 
         Fp_resampled = F_local[:, nearest_idx]
         Mp_resampled = M_local[:, nearest_idx]
+        angle_resampled = angle_local[nearest_idx]
 
     else:
         raise ValueError("mode must be 'interp' or 'nearest'")
 
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_pedal.npy", [Mp_resampled, Fp_resampled])
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", angle_resampled)
     # ----------------------------
     # 3) Transformation en global
     # ----------------------------
@@ -283,7 +289,7 @@ def main(show=True):
     plt.legend()
     plt.show()
 
-    global_force, global_moment = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:])
+    global_force, global_moment = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:], all_data[19,:])
     global_constraint = [global_moment, global_force]
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_global.npy", global_constraint)
     print("Forces et Moments enregistrés")
