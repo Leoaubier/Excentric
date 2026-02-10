@@ -23,24 +23,17 @@ def wrap_to_180(theta_deg):
 # ============================================================
 def detect_cycles_from_crank(crank_angle, min_cycle_frames=30):
     a = np.asarray(crank_angle, float)
-
-    # unwrap
     au = np.unwrap(a)
 
-    # détecter sens de rotation
     slope = np.median(np.diff(au))
+    direction = 1 if slope >= 0 else -1  # +1 concentrique, -1 excentrique (rotation inverse)
 
-    # si rotation négative (excentrique)
-    if slope < 0:
-        au = -au  # inversion
+    # pour DETECTER les tours, on force une rampe croissante
+    au_det = au if direction == 1 else -au
+    au_det = au_det - au_det[0]
 
-    # remettre début à 0
-    au = au - au[0]
-
-    # identifiant de tour
-    cycle_id = np.floor(au / (2*np.pi)).astype(int)
+    cycle_id = np.floor(au_det / (2*np.pi)).astype(int)
     changes = np.where(np.diff(cycle_id) > 0)[0] + 1
-
     starts = np.concatenate(([0], changes))
 
     # filtrer cycles trop courts
@@ -50,13 +43,10 @@ def detect_cycles_from_crank(crank_angle, min_cycle_frames=30):
             good.append(s)
 
     starts = np.array(good, dtype=int)
-
     if starts.size < 2:
-        raise RuntimeError(
-            f"Pas assez de cycles détectés (starts={starts.size})."
-        )
+        raise RuntimeError(f"Pas assez de cycles détectés (starts={starts.size}).")
 
-    return starts
+    return starts, direction
 
 
 
@@ -64,21 +54,14 @@ def detect_cycles_from_crank(crank_angle, min_cycle_frames=30):
 # ============================================================
 # Normalize cycles by crank angle (0..2pi grid)
 # ============================================================
-def normalize_emg_cycles_by_crank(emg, crank_angle, cycle_starts, n_points=360):
+def normalize_emg_cycles_by_crank(emg, crank_angle, cycle_starts, direction, n_points=360, keep_time_direction=True):
     emg = np.asarray(emg, float)
     a = np.unwrap(np.asarray(crank_angle, float))
 
-    # sens de rotation: on force la rampe croissante
-    if np.median(np.diff(a)) < 0:
-        a = -a
-
-    a = a - a[0]  # départ à 0
-
     m, T = emg.shape
-    angle_grid = np.linspace(0.0, 2 * np.pi, n_points, endpoint=False)
 
-    # grille équivalente en [0, 2pi) pour interp
-    grid_0_2pi = (angle_grid + 2*np.pi) % (2*np.pi)
+    # Grille d'affichage (toujours 0..2pi => 0..360)
+    angle_grid = np.linspace(0.0, 2*np.pi, n_points, endpoint=False)
 
     cycles = []
 
@@ -87,19 +70,33 @@ def normalize_emg_cycles_by_crank(emg, crank_angle, cycle_starts, n_points=360):
         i1 = int(cycle_starts[i+1])
 
         seg_emg = emg[:, i0:i1]
-        seg_a   = a[i0:i1] - a[i0]  # commence à 0
+        seg_a = a[i0:i1] - a[i0]   # démarre à 0 (peut être croissant ou décroissant)
 
-        # garder 1 tour
-        mask = seg_a < 2*np.pi
-        if np.sum(mask) < 10:
+        # angle "physique" modulo 2pi, dans [0, 2pi)
+        seg_phi = np.mod(seg_a, 2*np.pi)
+
+        # Pour interpoler, il faut seg_phi croissant -> on trie par angle
+        order = np.argsort(seg_phi)
+        seg_phi_s = seg_phi[order]
+        seg_emg_s = seg_emg[:, order]
+
+        # enlever doublons d'angle (sinon interp peut être instable)
+        # (garde la première occurrence de chaque angle)
+        keep = np.concatenate(([True], np.diff(seg_phi_s) > 1e-9))
+        seg_phi_s = seg_phi_s[keep]
+        seg_emg_s = seg_emg_s[:, keep]
+
+        if seg_phi_s.size < 10:
             continue
-        seg_a = seg_a[mask]
-        seg_emg = seg_emg[:, mask]
 
-        # interp nécessite x croissant: seg_a est croissant
         seg_norm = np.zeros((m, n_points))
         for mi in range(m):
-            seg_norm[mi] = np.interp(grid_0_2pi, seg_a, seg_emg[mi])
+            seg_norm[mi] = np.interp(angle_grid, seg_phi_s, seg_emg_s[mi])
+
+        # IMPORTANT : si tu veux conserver le sens temporel,
+        # alors l'excentrique doit "parcourir" l'angle à l'envers
+        if keep_time_direction and direction == -1:
+            seg_norm = seg_norm[:, ::-1]  # inverse 0..360 -> 360..0
 
         cycles.append(seg_norm)
 
@@ -110,14 +107,17 @@ def normalize_emg_cycles_by_crank(emg, crank_angle, cycle_starts, n_points=360):
     return cycles, angle_grid
 
 
-
-
-def compute_mode_stats_crank(emg, crank_angle, n_points=360):
-    starts = detect_cycles_from_crank(crank_angle)
-    cycles, angle_grid = normalize_emg_cycles_by_crank(emg, crank_angle, starts, n_points=n_points)
-    mean = np.mean(cycles, axis=1)  # (m, n_points)
+def compute_mode_stats_crank(emg, crank_angle, n_points=360, keep_time_direction=True):
+    starts, direction = detect_cycles_from_crank(crank_angle)
+    cycles, angle_grid = normalize_emg_cycles_by_crank(
+        emg, crank_angle, starts, direction,
+        n_points=n_points,
+        keep_time_direction=keep_time_direction
+    )
+    mean = np.mean(cycles, axis=1)
     std  = np.std(cycles, axis=1)
-    return mean, std, cycles, angle_grid, starts
+    return mean, std, cycles, angle_grid, starts, direction
+
 
 
 # ------------------------------------------------------------
@@ -188,14 +188,43 @@ muscle_names = [
     "delt_ant","delt_med","delt_post","trap_sup","triceps","biceps",
     "trap_med","trap_inf","gd","pec","brachio"
 ]
+
+# ------------------------------------------------------------
+# Définition de l'ordre d'affichage souhaité
+# ------------------------------------------------------------
+group_order = [
+    ["delt_ant", "delt_med", "delt_post"],          # ligne 1
+    ["trap_inf", "trap_med", "trap_sup"],           # ligne 2
+    ["triceps", "biceps", "gd", "pec", "brachio" ]  # ligne 3
+]
+
+# Convertit en indices correspondant aux données
+ordered_indices = []
+for group in group_order:
+    for name in group:
+        if name in muscle_names:
+            ordered_indices.append(muscle_names.index(name))
+
+# Vérification
+print("Nouvel ordre indices:", ordered_indices)
+
 n_muscles = emg_con.shape[0]
 
 # ============================================================
 # COMPUTE STATS
 # ============================================================
 N_POINTS = 360  # 1 point par degré (pratique)
-mean_con, std_con, cycles_con, angle_grid, starts_con = compute_mode_stats_crank(emg_con, crank_con, n_points=N_POINTS)
-mean_ecc, std_ecc, cycles_ecc, angle_grid2, starts_ecc = compute_mode_stats_crank(emg_ecc, crank_ecc, n_points=N_POINTS)
+mean_con, std_con, cycles_con, ang_con, starts_con, dir_con = compute_mode_stats_crank(emg_con, crank_con, n_points=360, keep_time_direction=False)
+mean_ecc, std_ecc, cycles_ecc, ang_ecc, starts_ecc, dir_ecc = compute_mode_stats_crank(emg_ecc, crank_ecc, n_points=360, keep_time_direction=False)
+
+# Abscisses affichées en degrés 0..360
+x_deg_con = (np.rad2deg(ang_con) + 360) % 360
+x_deg_ecc = (np.rad2deg(ang_ecc) + 360) % 360   # ICI: -90° -> 270° automatiquement
+
+# comme les grilles sont monotones et donnent 0..359, tu peux utiliser x_deg_con partout
+# (elles vont coïncider : 0,1,2,...,359)
+assert np.allclose(x_deg_con, x_deg_ecc)
+x_deg = x_deg_con
 
 print(f"Concentrique: {cycles_con.shape[1]} cycles")
 print(f"Excentrique : {cycles_ecc.shape[1]} cycles")
@@ -203,16 +232,14 @@ print(f"Excentrique : {cycles_ecc.shape[1]} cycles")
 # ============================================================
 # SUBPLOTS: mean ± std (abscisse = angle pédalier)
 # ============================================================
-x_deg = np.rad2deg(angle_grid)
-x_deg = x_deg % 360
 
 ncols = 3
 nrows = int(np.ceil(n_muscles / ncols))
 fig, axes = plt.subplots(nrows, ncols, figsize=(15, 4*nrows), sharex=True)
 axes = axes.flatten()
 
-for m in range(n_muscles):
-    ax = axes[m]
+for plot_idx, m in enumerate(ordered_indices):
+    ax = axes[plot_idx]
 
     ax.plot(x_deg, mean_con[m], label="Concentrique")
     ax.fill_between(x_deg, mean_con[m]-std_con[m], mean_con[m]+std_con[m], alpha=0.25)
@@ -225,6 +252,7 @@ for m in range(n_muscles):
     ax.set_ylabel("EMG")
     ax.set_xlim(0, 360)
     ax.grid(True, alpha=0.3)
+
 
 for k in range(n_muscles, len(axes)):
     fig.delaxes(axes[k])
@@ -240,10 +268,10 @@ plt.show()
 # ============================================================
 # POLAR PLOT: 3 line widths for >= 5%, 10%, 20% of max(mean)
 # ============================================================
-LEVELS = [0.30, 0.40, 0.50]
-LW_MAP = {0.30: 2.0, 0.40: 5.0, 0.50: 8.0}
+LEVELS = [0.40, 0.60, 0.80]
+LW_MAP = {0.40: 2.0, 0.60: 5.0, 0.80: 8.0}
 
-def plot_polar_levels(ax, mean_profiles, muscle_names, angle_grid, title=""):
+def plot_polar_levels(ax, mean_profiles, muscle_names, angle_grid, direction, title=""):
     """
     mean_profiles: (m, N) = mean EMG over cycles as function of crank angle
     For each muscle, draw arcs where mean >= level * max(mean) with line width per level.
@@ -251,7 +279,7 @@ def plot_polar_levels(ax, mean_profiles, muscle_names, angle_grid, title=""):
     m, N = mean_profiles.shape
 
     ax.set_theta_zero_location("E")
-    ax.set_theta_direction(-1)
+    ax.set_theta_direction(1)
     ax.set_yticks([])
     ax.set_ylim(-0.5, m + 1.0)
     ax.grid(True, alpha=0.25)
@@ -289,12 +317,12 @@ ax1 = fig.add_subplot(1, 2, 1, projection="polar")
 ax2 = fig.add_subplot(1, 2, 2, projection="polar")
 
 colors = plot_polar_levels(
-    ax1, mean_con, muscle_names, angle_grid,
-    title="Concentrique"
+    ax1, mean_con, muscle_names, ang_con,
+    dir_con, title="Concentrique"
 )
 plot_polar_levels(
-    ax2, mean_ecc, muscle_names, angle_grid,
-    title="Excentrique"
+    ax2, mean_ecc, muscle_names, ang_ecc,
+    dir_ecc, title="Excentrique"
 )
 
 # ---------------------------

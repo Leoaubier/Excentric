@@ -17,7 +17,7 @@ QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANC
 TAU_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
 EMG_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy"
 
-FIRST, END = 3000, 4000
+FIRST, END = 3000, 3200
 RES_BND_know = 2.5
 RES_BND_unknow = 4
 TAU_RES_BND = np.concatenate((
@@ -26,10 +26,23 @@ TAU_RES_BND = np.concatenate((
 ))
 EPS_ACT = 1e-6
 
-W_TAU = 2.6e10
-W_RES = 1.3e8
-W_EMG = 2.5e10
-W_ACT = 2.5e8
+if MODE_PEDALAGE == "concentric":
+    W_TAU = 2.6e10  #concentric
+    W_RES = 1.3e8
+    W_EMG = 2.5e10
+    W_ACT = 2.5e8
+    SAT = 9
+
+elif MODE_PEDALAGE == "eccentric":
+    W_TAU = 2.6e10  # concentric
+    W_RES = 1.3e8
+    W_EMG = 2.5e10
+    W_ACT = 2.5e8
+    SAT = 9
+
+
+else:
+    print("PROBLEME MODE DE PEDALAGE")
 
 DELAY = 30 # en ms (EMG en avance sur activation) : facteur 10
 
@@ -130,7 +143,7 @@ def build_nlp_solver(model_path, nb_mus, nb_tau):
         w_res * ca.sumsqr(tau_res) +
         w_emg * ca.sumsqr(emg_err) +
         w_act * ca.sumsqr(a_free) +
-        ca.sum(a**9)
+        ca.sum(a**SAT)
     )
 
     solver = ca.nlpsol(

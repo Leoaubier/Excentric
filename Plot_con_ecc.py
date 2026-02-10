@@ -47,24 +47,11 @@ def detect_cycles_from_crank(crank_angle, min_cycle_frames=30):
 # Normalisation par angle (générique multi-signaux)
 # ============================================================
 def normalize_cycles_by_crank(signals, crank_angle, cycle_starts, n_points=360, min_samples=10):
-    """
-    signals     : (n_signals, n_frames)
-    crank_angle : (n_frames,) en rad
-    cycle_starts: indices début de cycles
-    return      : cycles (n_signals, n_cycles, n_points), angle_grid (n_points,)
-    """
     signals = np.asarray(signals, float)
     a = np.unwrap(np.asarray(crank_angle, float))
 
-    # sens de rotation: on force rampe croissante
-    if np.median(np.diff(a)) < 0:
-        a = -a
-
-    a = a - a[0]  # départ à 0
-
     n_signals, T = signals.shape
     angle_grid = np.linspace(0.0, 2*np.pi, n_points, endpoint=False)
-    grid_0_2pi = (angle_grid + 2*np.pi) % (2*np.pi)
 
     cycles = []
     for i in range(len(cycle_starts) - 1):
@@ -72,20 +59,25 @@ def normalize_cycles_by_crank(signals, crank_angle, cycle_starts, n_points=360, 
         i1 = int(cycle_starts[i + 1])
 
         seg_s = signals[:, i0:i1]
-        seg_a = a[i0:i1] - a[i0]  # commence à 0
+        seg_a = a[i0:i1] - a[i0]     # peut être croissant OU décroissant
 
-        # garder 1 tour
-        mask = seg_a < 2*np.pi
-        if np.sum(mask) < min_samples:
+        # --- RECALAGE ANGULAIRE PHYSIQUE (mod 2π) ---
+        seg_phi = np.mod(seg_a, 2*np.pi)   # [0, 2π)
+        order = np.argsort(seg_phi)
+        seg_phi = seg_phi[order]
+        seg_s   = seg_s[:, order]
+
+        # enlever doublons d'angle
+        keep = np.concatenate(([True], np.diff(seg_phi) > 1e-9))
+        seg_phi = seg_phi[keep]
+        seg_s   = seg_s[:, keep]
+
+        if seg_phi.size < min_samples:
             continue
 
-        seg_a = seg_a[mask]
-        seg_s = seg_s[:, mask]
-
-        # interp (seg_a croissant)
         seg_norm = np.zeros((n_signals, n_points))
         for k in range(n_signals):
-            seg_norm[k] = np.interp(grid_0_2pi, seg_a, seg_s[k])
+            seg_norm[k] = np.interp(angle_grid, seg_phi, seg_s[k])
 
         cycles.append(seg_norm)
 
@@ -94,6 +86,7 @@ def normalize_cycles_by_crank(signals, crank_angle, cycle_starts, n_points=360, 
 
     cycles = np.stack(cycles, axis=1)  # (n_signals, n_cycles, n_points)
     return cycles, angle_grid
+
 
 
 def normalize_1d_cycles_by_crank(sig_1d, crank_angle, cycle_starts, n_points=360):
@@ -274,6 +267,7 @@ if __name__ == "__main__":
 
     print(f"Concentrique: {stats_con['act_cycles'].shape[1]} cycles")
     print(f"Excentrique : {stats_ecc['act_cycles'].shape[1]} cycles")
+
 
     # Plots : check cycles
     plot_q_alignment_angle(

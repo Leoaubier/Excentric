@@ -13,8 +13,8 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-MODE_PEDALAGE = "eccentric"
-PUISSANCE = "40"
+MODE_PEDALAGE = "concentric"
+PUISSANCE = "80"
 
 
 # === Choix des frames à analyser ===
@@ -226,7 +226,7 @@ def plot_cycles_from_layout(
             ax.plot(x, mean_, linewidth=2)
             ax.fill_between(x, mean_ - std_, mean_ + std_, alpha=0.2)
 
-            ax.set_title(title, fontsize=11)
+            ax.set_title(title, fontsize=12)
             ax.grid(True, alpha=0.3)
 
             if c == 0:
@@ -280,8 +280,29 @@ def main(show=True):
     qdot_recons = np.zeros((nq, n_frames))
     qddot_recons = np.zeros((nq, n_frames))
 
+    if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
+        if PUISSANCE == "40":
+            init = 4000
+        elif PUISSANCE == "60":
+            init = 3000
+        elif PUISSANCE == "80":
+            init = 3000
+        else:
+            print("PB PUISSANCE")
+    elif MODE_PEDALAGE == "eccentric":
+        if PUISSANCE == "40":
+            init = 2000
+        elif PUISSANCE == "60":
+            init = 3000
+        elif PUISSANCE == "80":
+            init = 8000
+        else:
+            print("PB PUISSANCE")
+    else:
+        print("PB MODE PEDALAGE")
+    print("Filtre de Kalman initialisé à la frame", init)
     kalman = biorbd.ExtendedKalmanFilterMarkers(model, frequency=100)
-    q_i, _, _ = kalman.reconstruct_frame(markers[4000])
+    q_i, _, _ = kalman.reconstruct_frame(markers[init])
     for i, (q_i, qdot_i, qddot_i) in enumerate(kalman.reconstruct_frames(markers)):
         q_recons[:, i] = q_i
         qdot_recons[:, i] = qdot_i

@@ -12,7 +12,7 @@ import numpy as np
 from pyomeca import Analogs
 
 MODE_PEDALAGE = "eccentric"
-PUISSANCE = "40"
+PUISSANCE = "80"
 
 
 def resample_emg_to_100hz(emg, target_fs=100):
@@ -175,9 +175,10 @@ for j in range(n_channels, len(axes)):
     axes[j].axis("off")
 
 plt.tight_layout()
-plt.show()
 
 np.save(
     f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy",
     emg_processed_resampled.values
 )
+
+plt.show()

@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
-MODE_PEDALAGE = "eccentric"
-PUISSANCE = "40"
+MODE_PEDALAGE = "concentric"
+PUISSANCE = "60"
 
 #
 # This examples shows how to
@@ -185,7 +185,7 @@ def plot_segment_grid(
 
             dof, title = dofs[c]
             if dof not in dof_name:
-                ax.set_title(f"{title}\n(MISSING: {dof})", fontsize=9)
+                ax.set_title(f"{title}\n(MISSING: {dof})", fontsize=11)
                 ax.axis("off")
                 continue
 
