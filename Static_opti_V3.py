@@ -301,31 +301,9 @@ def main():
     mus_act_emg = np.zeros((nbTrackedMus,n_frames))
     for i, idx in enumerate(track_idx):
         mus_act_emg[i, :] = mus_act[idx, :]
-    plt.figure(figsize=(14, 6))
-    for i in range(nbTrackedMus):
-        plt.plot(mus_act_emg[i, :], label=f"{i}: {tracked_names[i]}")
-    plt.title("Activations musculaires")
-    plt.xlabel("Frame")
-    plt.ylabel("Activation")
-    plt.grid(True)
-    plt.legend(ncol=2, fontsize=8)
-    plt.tight_layout()
-    plt.show()
-
 
     all_muscle_names = [model_np.muscle(i).name().to_string() for i in range(model_np.nbMuscles())]
 
-
-    plt.figure(figsize=(14, 6))
-    for i in range(nbMus):
-        plt.plot(mus_act[i, :], label=f"{i}: {all_muscle_names[i]}")
-    plt.title("Activations musculaires")
-    plt.xlabel("Frame")
-    plt.ylabel("Activation")
-    plt.grid(True)
-    plt.legend(ncol=2, fontsize=8)
-    plt.tight_layout()
-    plt.show()
 
     plt.figure(figsize=(14, 6))
     for i in range(nbMus):
@@ -338,29 +316,6 @@ def main():
     plt.tight_layout()
     plt.show()
 
-    plt.figure(figsize=(14, 6))
-
-    for i, name in enumerate(tracked_names):
-        emg_ch = emg_idx[i]  # ✅ canal EMG correspondant à ce muscle
-
-        plt.plot(
-            mus_act_emg[i, :],
-            label=f"Activation {name}"
-        )
-
-        plt.plot(
-            emg[emg_ch,:],
-            '--',
-            label=f"EMG ch{emg_ch}"
-        )
-
-    plt.xlabel("Frame")
-    plt.ylabel("Activation / EMG")
-    plt.title("Activations musculaires vs EMG")
-    plt.grid(True)
-    plt.legend(ncol=2, fontsize=8)
-    plt.tight_layout()
-    plt.show()
 
     ### PLOT DES TAU
 
@@ -463,7 +418,35 @@ def main():
 
     aemg.show()
 
+    # PLOT ACT
 
+    act = go.Figure()
+
+    for i, name in enumerate(all_muscle_names):
+        # tau
+        act.add_trace(
+            go.Scatter(
+                y=mus_act[i, :],
+                mode="lines",
+                name=f"{i}: {name}",
+                legendgroup=f"group_{i}"
+            )
+        )
+
+    act.update_layout(
+        title="Activation",
+        xaxis_title="Frame",
+        yaxis_title="Activation",
+        hovermode="x unified",
+        legend=dict(
+            itemclick="toggle",
+            itemdoubleclick="toggleothers"
+        ),
+        template="plotly_white",
+        height=500
+    )
+
+    act.show()
     #---------- Plot final -----------
     # ==========================================================
     # DÉTECTION DES CYCLES À PARTIR D’UN DOF DE RÉFÉRENCE

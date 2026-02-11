@@ -6,7 +6,7 @@ from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
 MODE_PEDALAGE = "concentric"
-PUISSANCE = "60"
+PUISSANCE = "40"
 
 #
 # This examples shows how to
@@ -163,8 +163,16 @@ def plot_segment_grid(
 
     fig, axes = plt.subplots(
         n_rows, n_cols,
-        figsize=(4.2 * n_cols, 2.6 * n_rows),
+        figsize=(11.69, 8.27),
         sharex=True
+    )
+    plt.subplots_adjust(
+        left=0.07,
+        right=0.98,
+        top=0.93,
+        bottom=0.08,
+        wspace=0.25,
+        hspace=0.35
     )
     if n_rows == 1:
         axes = np.array([axes])
@@ -185,7 +193,7 @@ def plot_segment_grid(
 
             dof, title = dofs[c]
             if dof not in dof_name:
-                ax.set_title(f"{title}\n(MISSING: {dof})", fontsize=11)
+                ax.set_title(f"{title}\n(MISSING: {dof})", fontsize=12)
                 ax.axis("off")
                 continue
 
@@ -200,8 +208,9 @@ def plot_segment_grid(
                 ax.plot(x, mean_, lw=2, label=lab, color=col)
                 ax.fill_between(x, mean_ - std_, mean_ + std_, alpha=0.15, color=col)
 
-            ax.set_title(title, fontsize=10)
+            ax.set_title(title, fontsize=13)
             ax.grid(True, alpha=0.3)
+            ax.tick_params(labelsize=10)
 
             # Y label seulement sur 1ère colonne de chaque ligne (comme sur ton image)
             if c == 0:
@@ -235,9 +244,31 @@ def main():
     plt.show()
 
     # ----------- Paramètres utilisateur -----------
+    if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
+        if PUISSANCE == "40":
+            START = 2000  # frame de début (ex : 2000)
+            END = 6000  # frame de fin
+        elif PUISSANCE == "60":
+            START = 2000  # frame de début (ex : 2000)
+            END = 5000  # frame de fin
+        elif PUISSANCE == "80":
+            START = 1500  # frame de début (ex : 2000)
+            END = 4000  # frame de fin
+        else:
+            print("PB PUISSANCE")
+    elif MODE_PEDALAGE == "eccentric":
+        if PUISSANCE == "40":
+            START = 2000  # frame de début (ex : 2000)
+            END = 5000  # frame de fin
+        elif PUISSANCE == "60":
+            START = 1500  # frame de début (ex : 2000)
+            END = 3500  # frame de fin
+        elif PUISSANCE == "80":
+            START = 2000  # frame de début (ex : 2000)
+            END = 6000  # frame de fin
+        else:
+            print("PB PUISSANCE")
 
-    START = 3000  # frame de début (ex : 2000)
-    END = 4800  # frame de fin
 
     # ----------- Sélection plage temporelle --------
     tau_sel = tau[:, START:END]

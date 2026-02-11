@@ -14,7 +14,7 @@ except ModuleNotFoundError:
     biorbd_viz_found = False
 
 MODE_PEDALAGE = "concentric"
-PUISSANCE = "80"
+PUISSANCE = "40"
 
 
 # === Choix des frames à analyser ===
@@ -188,8 +188,16 @@ def plot_cycles_from_layout(
 
     fig, axes = plt.subplots(
         n_rows, n_cols,
-        figsize=(4.2 * n_cols, 2.6 * n_rows),
+        figsize=(11.69, 8.27),
         sharex=True
+    )
+    plt.subplots_adjust(
+        left=0.07,
+        right=0.98,
+        top=0.93,
+        bottom=0.08,
+        wspace=0.25,
+        hspace=0.35
     )
 
     if n_rows == 1:
@@ -210,7 +218,7 @@ def plot_cycles_from_layout(
             dof_full, title = row_items[c]
 
             if dof_full not in cycles_per_dof:
-                ax.set_title(f"{title}\n(MISSING)", fontsize=10)
+                ax.set_title(f"{title}\n(MISSING)", fontsize=12)
                 ax.axis("off")
                 continue
 
@@ -226,8 +234,9 @@ def plot_cycles_from_layout(
             ax.plot(x, mean_, linewidth=2)
             ax.fill_between(x, mean_ - std_, mean_ + std_, alpha=0.2)
 
-            ax.set_title(title, fontsize=12)
+            ax.set_title(title, fontsize=13)
             ax.grid(True, alpha=0.3)
+            ax.tick_params(labelsize=10)
 
             if c == 0:
                 ax.set_ylabel(f"{seg}\n{ylabel}")
@@ -313,14 +322,16 @@ def main(show=True):
 
     print("IK Kalmann terminé.")
     #q_plot = q_recons
-    #q_plot[8, :] = (q_plot[8, :])%(2*pi)
-    #q_plot[11, :] = (q_plot[11, :] + pi)%(2*pi)
+    #q_plot[6, :] = (q_plot[6, :] + pi)
+    #q_plot[7, :] = (q_plot[7, :] + pi)
+    #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
+    #q_plot[9, :] = (q_plot[9, :]- pi)
+    #q_plot[10, :] = (q_plot[10, :]- pi)
+    #q_plot[11, :] = (q_plot[11, :]-pi)
     #q_plot[12, :] = (-q_plot[12, :])%(2*pi)
-    #q_plot[13, :] = (q_plot[13, :] - pi)
     #q_plot[14, :] = (q_plot[14, :])%(2*pi)
     #q_plot[15, :] = (q_plot[15, :])%(2*pi)
-    #q_plot[16, :] = (q_plot[16, :]) % (2 * pi)
-    #q_plot[17, :] = (q_plot[17, :]) % (2 * pi)
+
 
     q_recons[:,:] = np.unwrap(q_recons[:,:])
     JOINTS = {
@@ -356,8 +367,8 @@ def main(show=True):
     # 4) Extraction & normalisation des cycles
     # ===========================
 
-    FIRST_FRAME_PLOT = 3000
-    END_FRAME_PLOT = 4800
+    FIRST_FRAME_PLOT = 2000
+    END_FRAME_PLOT = 6000
 
     dof_name = list(model.dof_names)
 

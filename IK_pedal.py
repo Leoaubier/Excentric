@@ -16,7 +16,7 @@ except ModuleNotFoundError:
     biorbd_viz_found = False
 
 MODE_PEDALAGE = "concentric"
-PUISSANCE = "80"
+PUISSANCE = "40"
 
 
 # === Choix des frames à analyser ===
