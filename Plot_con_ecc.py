@@ -8,27 +8,21 @@ from scipy.signal import find_peaks
 # ============================================================
 def detect_cycles_from_crank(crank_angle, min_cycle_frames=30):
     """
-    Détecte les cycles par passage 2π -> 0 (wrap naturel).
-    Fonctionne pour con et ecc automatiquement.
+    Détecte les cycles via wrap naturel 2π -> 0.
+    Supposé : crank_angle évolue dans le même sens pour con et ecc.
     """
     a = np.asarray(crank_angle, float)
 
-    # différence brute
     da = np.diff(a)
-
-    # seuil de wrap (plus robuste que -pi)
     threshold = np.pi
 
-    # si rotation positive (concentrique)
-    if np.median(da) > 0:
-        wraps = np.where(da < -threshold)[0] + 1
-    else:
-        wraps = np.where(da > threshold)[0] + 1
+    # wrap naturel (2π -> 0)
+    wraps = np.where(da < -threshold)[0] + 1
 
     if wraps.size == 0:
         raise RuntimeError("Aucun wrap détecté dans crank_angle.")
 
-    # filtrer cycles trop courts
+    # filtrage cycles trop courts
     good = [wraps[0]]
     for s in wraps[1:]:
         if s - good[-1] >= min_cycle_frames:
@@ -59,15 +53,9 @@ def normalize_cycles_by_crank(signals, crank_angle, cycle_starts, n_points=360, 
         i1 = int(cycle_starts[i + 1])
 
         seg_s = signals[:, i0:i1]
-        seg_a = a[i0:i1] - a[i0]     # peut être croissant OU décroissant
+        seg_a = a[i0:i1]                      # PAS de unwrap ici
+        seg_phi = np.mod(seg_a - seg_a[0], 2*np.pi)  # toujours pareil
 
-        # --- RECALAGE ANGULAIRE PHYSIQUE (mod 2π) ---
-        seg_phi = np.mod(seg_a, 2*np.pi)   # [0, 2π)
-        order = np.argsort(seg_phi)
-        seg_phi = seg_phi[order]
-        seg_s   = seg_s[:, order]
-
-        # enlever doublons d'angle
         keep = np.concatenate(([True], np.diff(seg_phi) > 1e-9))
         seg_phi = seg_phi[keep]
         seg_s   = seg_s[:, keep]
@@ -84,8 +72,8 @@ def normalize_cycles_by_crank(signals, crank_angle, cycle_starts, n_points=360, 
     if len(cycles) == 0:
         raise RuntimeError("Aucun cycle valide (après filtrage).")
 
-    cycles = np.stack(cycles, axis=1)  # (n_signals, n_cycles, n_points)
-    return cycles, angle_grid
+    return np.stack(cycles, axis=1), angle_grid
+
 
 
 
@@ -242,6 +230,15 @@ if __name__ == "__main__":
     act_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :n_frame]
     frc_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscles_forces.npy")[:, :n_frame]
     crank_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/crank_angle.npy")[FIRST_FRAME_PLOT:END_FRAME_PLOT]
+
+    # Remettre l'excentrique dans le même sens temporel (et donc même progression de phase)
+    q_ecc = q_ecc[:, ::-1]
+    act_ecc = act_ecc[:, ::-1]
+    frc_ecc = frc_ecc[:, ::-1]
+    crank_ecc = crank_ecc[::-1]
+
+    #crank_con = np.mod(crank_con - np.pi, 2 * np.pi)
+    #crank_ecc = np.mod(crank_ecc - np.pi, 2 * np.pi)
 
     # Checks
     assert q_con.shape[1] == crank_con.shape[0]

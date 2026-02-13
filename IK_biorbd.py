@@ -17,10 +17,10 @@ MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 
-# === Choix des frames à analyser ===
+# Choix des frames à analyser
 END_FRAME   = None    # Dernière frame (None = dernière frame du fichier)
 
-# === 1. Markers du modèle, DANS L'ORDRE DU .bioMod ===
+# 1. Markers du modèle, DANS L'ORDRE DU .bioMod
 MODEL_MARKERS = [
     "Ster",
     "Xiph",
@@ -132,14 +132,11 @@ def plot_cycles_from_layout(
 
     assert ref_dof_name in dof_name, f"{ref_dof_name} absent de dof_name"
 
-    # -------------------------------------------------
+
     # Sélection temporelle
-    # -------------------------------------------------
     sig_sel = signal[:, first_frame:end_frame]
 
-    # -------------------------------------------------
     # Détection des cycles
-    # -------------------------------------------------
     ref_idx = dof_name.index(ref_dof_name)
     ref_signal = sig_sel[ref_idx, :]
 
@@ -154,9 +151,8 @@ def plot_cycles_from_layout(
     plt.title(f"q[14,:] + peaks détectés (N={len(peaks)})")
     plt.show()
 
-    # -------------------------------------------------
+
     # Extraction cycles pour chaque DoF du layout
-    # -------------------------------------------------
     cycles_per_dof = {}
     mean_per_dof   = {}
     std_per_dof    = {}
@@ -177,9 +173,7 @@ def plot_cycles_from_layout(
             mean_per_dof[dof_full]   = np.mean(cyc, axis=0)
             std_per_dof[dof_full]    = np.std(cyc, axis=0)
 
-    # -------------------------------------------------
     # Plot grille
-    # -------------------------------------------------
     x = np.linspace(0, 100, n_points)
 
     segments = list(layout.keys())
@@ -191,7 +185,7 @@ def plot_cycles_from_layout(
         figsize=(11.69, 8.27),
         sharex=True
     )
-    plt.subplots_adjust(
+    fig.subplots_adjust(
         left=0.07,
         right=0.98,
         top=0.93,
@@ -321,14 +315,53 @@ def main(show=True):
             print(f"Frame {i}/{n_frames}")
 
     print("IK Kalmann terminé.")
+
+    if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
+        if PUISSANCE == "40":
+            q_recons[8, :] = (q_recons[8, :] + 2 * pi)  # plot du concentric 40W
+            q_recons[11, :] = (q_recons[11, :] - pi) % (2 * pi)
+            q_recons[12, :] = (-q_recons[12, :]) % (2 * pi)
+            q_recons[13, :] = (q_recons[13, :] - pi)
+        elif PUISSANCE == "60":
+            pass
+            #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
+
+        elif PUISSANCE == "80":
+            pass
+            #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
+
+        else:
+            print("PB PUISSANCE")
+    elif MODE_PEDALAGE == "eccentric":
+        if PUISSANCE == "40":
+            q_recons[8, :] = (q_recons[8, :] + 2 * pi)  # plot du concentric 40W
+            q_recons[10, :] = (q_recons[10, :] + 2* pi)
+            q_recons[11, :] = (q_recons[11, :] + pi)
+            q_recons[12, :] = (-q_recons[12, :])
+            q_recons[13, :] = (q_recons[13, :] - pi)
+            q_recons[15, :] = (q_recons[15, :] + pi)
+            q_recons[16, :] = -(q_recons[16, :])-pi
+            q_recons[17, :] = -(q_recons[17, :])+pi
+
+        elif PUISSANCE == "60":
+            pass
+            #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
+
+        elif PUISSANCE == "80":
+            pass
+            #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
+
+        else:
+            print("PB PUISSANCE")
     #q_plot = q_recons
     #q_plot[6, :] = (q_plot[6, :] + pi)
     #q_plot[7, :] = (q_plot[7, :] + pi)
     #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
     #q_plot[9, :] = (q_plot[9, :]- pi)
     #q_plot[10, :] = (q_plot[10, :]- pi)
-    #q_plot[11, :] = (q_plot[11, :]-pi)
-    #q_plot[12, :] = (-q_plot[12, :])%(2*pi)
+    #q_recons[11, :] = (q_recons[11, :] - pi)%(2*pi)
+    #q_recons[12, :] = (-q_recons[12, :])%(2*pi)
+    #q_recons[13, :] = (q_recons[13, :] - pi)
     #q_plot[14, :] = (q_plot[14, :])%(2*pi)
     #q_plot[15, :] = (q_plot[15, :])%(2*pi)
 
@@ -340,9 +373,7 @@ def main(show=True):
         "Rot axiale hum": 2
     }
 
-    # ===========================
     # 1) Détection des pics via le coude (référence du cycle)
-    # ===========================
     shoulder_euler = np.rad2deg(q_recons[11:14, :])
     elbow_euler = np.rad2deg(q_recons[14, :])
 
@@ -353,7 +384,10 @@ def main(show=True):
     plt.plot(elbow_euler, label="Coude kalmann")  #--> Flexion coude
     plt.legend()
     plt.show()
-
+    plt.plot(q_recons[16,:], label="add")
+    plt.plot(q_recons[17, :], label="flex")
+    plt.legend()
+    plt.show()
 
     # ===========================
     # 2) Enregistrement des données
@@ -363,12 +397,10 @@ def main(show=True):
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qddot_inverse_kinematic.npy", qddot_recons)
     print("données IK enregistrées :)")
 
-    # ===========================
     # 4) Extraction & normalisation des cycles
-    # ===========================
 
     FIRST_FRAME_PLOT = 2000
-    END_FRAME_PLOT = 6000
+    END_FRAME_PLOT = 5200
 
     dof_name = list(model.dof_names)
 
@@ -396,9 +428,7 @@ def main(show=True):
         ],
     }
 
-    # ===========================
     # 3) SUBPLOTS
-    # ===========================
 
     plot_cycles_from_layout(
         signal=q_deg,
@@ -410,6 +440,18 @@ def main(show=True):
         ylabel="Joint angle (°)",
         distance_peaks=100,
         labels = [MODE_PEDALAGE + " " + PUISSANCE + " W"]
+    )
+
+    plot_cycles_from_layout(
+        signal=qdot_recons,
+        dof_name=dof_name,
+        layout=LAYOUT,
+        ref_dof_name="humerus_left_offset_elbow_left_flexion_RotZ",
+        first_frame=FIRST_FRAME_PLOT,
+        end_frame=END_FRAME_PLOT,
+        ylabel="Joint speed (rad.s-1)",
+        distance_peaks=100,
+        labels=[MODE_PEDALAGE + " " + PUISSANCE + " W"]
     )
 
 

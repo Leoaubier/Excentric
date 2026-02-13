@@ -5,10 +5,10 @@ from matplotlib.widgets import CheckButtons
 import ezc3d
 from pyomeca import Analogs
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
-model_path = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
+model_path = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
 c3d_path   = f"/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d"
 q_path     = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 
@@ -110,10 +110,10 @@ for k, (i_model, i_c3d) in enumerate(mapping):
 #plt.plot(np.mean(marker_error_mm, axis=1), 'k--', linewidth=3, label="Erreur moyenne")
 
 
-plt.title("Erreur de reconstruction IK par marker")
+plt.title("Erreur de reconstruction IK par marker", fontsize=13)
 plt.xlabel("Frame")
 plt.ylabel("Erreur (mm)")
-plt.legend(fontsize=7)
+plt.legend(fontsize=10)
 plt.grid(True)
 plt.tight_layout()
 plt.show()

@@ -84,7 +84,8 @@ for i in range(n_trials):
 ax.set_xticks(x)
 ax.set_xticklabels(muscle_names, rotation=30, ha="right")
 ax.set_ylabel("EMG (moyenne ± std)")
-ax.set_title("EMG moyenne ± écart-type par muscle (6 essais)")
+ax.set_title("EMG moyenne ± écart-type par muscle (6 essais)", fontsize=13)
+ax.tick_params(labelsize=10)
 ax.grid(True, axis="y", alpha=0.3)
 
 ax.legend(title="Essais", bbox_to_anchor=(1.02, 1), loc="upper left")

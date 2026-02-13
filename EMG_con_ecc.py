@@ -172,6 +172,10 @@ crank_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISS
 emg_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/emg_processed_resampled.npy")[:, FIRST_FRAME_PLOT:END_FRAME_PLOT]
 crank_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/crank_angle.npy")[FIRST_FRAME_PLOT:END_FRAME_PLOT]
 
+crank_con = np.mod(crank_con - np.pi, 2*np.pi)
+crank_ecc = np.mod(crank_ecc - np.pi, 2*np.pi)
+
+
 au = np.unwrap(crank_ecc)
 au = au - au[0]
 
@@ -235,7 +239,15 @@ print(f"Excentrique : {cycles_ecc.shape[1]} cycles")
 
 ncols = 3
 nrows = int(np.ceil(n_muscles / ncols))
-fig, axes = plt.subplots(nrows, ncols, figsize=(15, 4*nrows), sharex=True)
+fig, axes = plt.subplots(nrows, ncols, figsize=(11.69, 8.27), sharex=True)
+fig.subplots_adjust(
+        left=0.07,
+        right=0.98,
+        top=0.93,
+        bottom=0.08,
+        wspace=0.25,
+        hspace=0.35
+    )
 axes = axes.flatten()
 
 for plot_idx, m in enumerate(ordered_indices):
@@ -247,10 +259,11 @@ for plot_idx, m in enumerate(ordered_indices):
     ax.plot(x_deg, mean_ecc[m], label="Excentrique")
     ax.fill_between(x_deg, mean_ecc[m]-std_ecc[m], mean_ecc[m]+std_ecc[m], alpha=0.25)
 
-    ax.set_title(muscle_names[m])
+    ax.set_title(muscle_names[m], fontsize=13)
     ax.set_xlabel("Angle pédalier (deg)")
     ax.set_ylabel("EMG")
     ax.set_xlim(0, 360)
+    ax.tick_params(labelsize=10)
     ax.grid(True, alpha=0.3)
 
 
@@ -305,7 +318,7 @@ def plot_polar_levels(ax, mean_profiles, muscle_names, angle_grid, direction, ti
             for s, e in segs:
                 # handle wrap segment where e can exceed N
                 idx = np.arange(s, e)
-                th = angle_grid[idx % N]
+                th = np.mod(angle_grid[idx % N] - np.pi, 2 * np.pi)
                 r  = np.ones_like(th) * (r0s[mi] + ring_h)
 
                 ax.plot(th, r, linewidth=LW_MAP[level], color=col, solid_capstyle="round")
@@ -318,11 +331,11 @@ ax2 = fig.add_subplot(1, 2, 2, projection="polar")
 
 colors = plot_polar_levels(
     ax1, mean_con, muscle_names, ang_con,
-    dir_con, title="Concentrique"
+    dir_con, title=f"Concentrique {PUISSANCE}W"
 )
 plot_polar_levels(
     ax2, mean_ecc, muscle_names, ang_ecc,
-    dir_ecc, title="Excentrique"
+    dir_ecc, title=f"Excentrique {PUISSANCE}W"
 )
 
 # ---------------------------

@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
 
@@ -97,31 +97,7 @@ def extract_relevant_markers(raw_markers, mapping):
     return raw_markers[:, indices, :]
 
 
-def numpy_markers_to_nodes(markers_frame):
-    nodes = []
-    for i in range(markers_frame.shape[1]):
-        x, y, z = markers_frame[:, i]
-        node = biorbd.NodeSegment(float(x), float(y), float(z))
-        nodes.append(node)
-    return nodes
-
-
-def to_dic(all_data_int):
-    dic_data = {"time": all_data_int[0, :],
-                "LFX": all_data_int[1, :],
-                "LFY": all_data_int[2, :],
-                "LFZ": all_data_int[3, :],
-                "LMX": all_data_int[4, :],
-                "LMY": all_data_int[5, :],
-                "LMZ": all_data_int[6, :],
-                "LAX": all_data_int[7, :],
-                "LAY": all_data_int[8, :],
-                "left_pedal_angle": all_data_int[17, :],
-                "crank_angle": all_data_int[19,:]
-                }
-    return dic_data
-
-def transform_forces_to_global(model, q_recons, F_local, M_local, angle_local,
+def transform_forces_to_global(model, q_recons, F_local, M_local, angle_local, F_crank, M_crank,
                                fs_high=250, fs_low=100, mode="nearest"):
     """
     Transforme les forces/moments en coordonnées globales, en recalent les signaux 250 Hz sur 100 Hz.
@@ -182,17 +158,20 @@ def transform_forces_to_global(model, q_recons, F_local, M_local, angle_local,
         Fp_resampled = F_local[:, nearest_idx]
         Mp_resampled = M_local[:, nearest_idx]
         angle_resampled = angle_local[nearest_idx]
+        Fc_resampled = F_crank[:, nearest_idx]
+        Mc_resampled = M_crank[:, nearest_idx]
 
     else:
         raise ValueError("mode must be 'interp' or 'nearest'")
 
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_pedal.npy", [Mp_resampled, Fp_resampled])
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_crank.npy", [Mc_resampled, Fc_resampled])
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", angle_resampled)
     # ----------------------------
     # 3) Transformation en global
     # ----------------------------
     F_global = np.zeros((3, n_frames))
     M_global = np.zeros((3, n_frames))
+
 
     for i in range(n_frames):
         # force/moment 100 Hz correspondants
@@ -312,9 +291,10 @@ def main(show=True):
     plt.legend()
     plt.show()
 
-    global_force, global_moment = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:], all_data[19,:])
+    global_force, global_moment = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:], all_data[19,:],all_data[21:24,:], all_data[24:27,:])
     global_constraint = [global_moment, global_force]
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_global.npy", global_constraint)
+
     print("Forces et Moments enregistrés")
     print("markers frames:", n_frames)
     print("forces frames:", all_data.shape[1])  # total forces

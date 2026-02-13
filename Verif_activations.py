@@ -30,13 +30,13 @@ def get_R(model, q):
     return R
 
 A_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/muscle_activations_nonlinear.npy"
-MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
+MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
 
 Q_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy"
 TAU_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
 
-FIRST, END = 3000, 4000
+FIRST, END = 3000, 3002
 
 
 model = biorbd.Model(MODEL_PATH)
@@ -49,6 +49,8 @@ qdot = np.load(QDOT_PATH)
 tau = np.load(TAU_PATH)
 
 n_frames = END - FIRST
+
+print(qdot[14,FIRST:END])
 
 f_full = np.zeros((n_musc,n_frames))
 
