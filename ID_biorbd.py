@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
 #
@@ -17,7 +17,7 @@ PUISSANCE = "40"
 #
 # Please note that this example will work only with the Eigen backend
 #
-model_path = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
+model_path = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
 model_pedal_path = '/Users/leo/Desktop/Projet/modele_opensim/model_pedal.bioMod'
 q_path     = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 q_pedal_path = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/inverse_kinematic_pedal.npy"
@@ -40,7 +40,6 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
 
     q_recons = np.load(q_path)
     qdot_recons = np.load(qdot_path)
-
 
 
     fs = 100

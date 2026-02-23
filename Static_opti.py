@@ -21,9 +21,9 @@ print(dir(biorbd))  # tu devrais voir BiorbdModel ou Biorbd
 def main():
     # Load a predefined model
     MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_Sidonie_last.bioMod"
-    Q_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/q_inverse_kinematic_sidonie_40W.npy"
-    QDOT_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/IK/qdot_inverse_kinematic_sidonie_40W.npy"
-    TAU_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/ID/tau_inverse_dynamic_Sidonie_40w.npy"
+    Q_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_40W/q_inverse_kinematic.npy"
+    QDOT_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/concentric_40W/qdot_inverse_kinematic.npy"
+    TAU_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11/concentric_40W/tau_inverse_dynamic.npy"
 
     model = biorbd.Biorbd(MODEL_PATH)
 
@@ -52,6 +52,7 @@ def main():
         tau[i] = tau_n[:,i+Start]
 
 
+
     optim = biorbd.StaticOptimization(model)
     muscle_activations = []
     tau_residual = []
@@ -60,14 +61,13 @@ def main():
         muscle_activations.append(value)
 
 
-
     # Print them to the console
     for i, activations in enumerate(muscle_activations):
         print(f"Frame {i}: {activations}")
 
     A = np.array(muscle_activations).T  # (n_muscles, n_frames)
 
-    np.save("/Users/leo/Desktop/Projet/Collecte_25_11/statique/muscle_activations_biorbd.npy",A)
+    #np.save("/Users/leo/Desktop/Projet/Collecte_25_11/statique/muscle_activations_biorbd.npy",A)
 
 
     fig, axes = plt.subplots(7, 5, figsize=(4 * 7, 3 * 5), sharex=True)

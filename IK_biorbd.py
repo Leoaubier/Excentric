@@ -13,7 +13,7 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
 
@@ -316,12 +316,14 @@ def main(show=True):
 
     print("IK Kalmann terminé.")
 
+    q_cont = q_recons.copy()
+
     if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
         if PUISSANCE == "40":
-            q_recons[8, :] = (q_recons[8, :] + 2 * pi)  # plot du concentric 40W
-            q_recons[11, :] = (q_recons[11, :] - pi) % (2 * pi)
-            q_recons[12, :] = (-q_recons[12, :]) % (2 * pi)
-            q_recons[13, :] = (q_recons[13, :] - pi)
+            q_cont[8, :] = (q_cont[8, :] + 2 * pi)  # plot du concentric 40W
+            q_cont[11, :] = (q_cont[11, :] - pi) % (2 * pi)
+            q_cont[12, :] = (-q_cont[12, :]) % (2 * pi)
+            q_cont[13, :] = (q_cont[13, :] - pi)
         elif PUISSANCE == "60":
             pass
             #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
@@ -334,14 +336,16 @@ def main(show=True):
             print("PB PUISSANCE")
     elif MODE_PEDALAGE == "eccentric":
         if PUISSANCE == "40":
-            q_recons[8, :] = (q_recons[8, :] + 2 * pi)  # plot du concentric 40W
-            q_recons[10, :] = (q_recons[10, :] + 2* pi)
-            q_recons[11, :] = (q_recons[11, :] + pi)
-            q_recons[12, :] = (-q_recons[12, :])
-            q_recons[13, :] = (q_recons[13, :] - pi)
-            q_recons[15, :] = (q_recons[15, :] + pi)
-            q_recons[16, :] = -(q_recons[16, :])-pi
-            q_recons[17, :] = -(q_recons[17, :])+pi
+            q_cont[8, :] = (q_cont[8, :] + 2 * pi)  # plot du concentric 40W
+            q_cont[10, :] = (q_cont[10, :] + 2* pi)
+            q_cont[11, :] = (q_cont[11, :] + pi)
+            q_cont[12, :] = (-q_cont[12, :])
+            q_cont[13, :] = (q_cont[13, :] - pi)
+            q_cont[15, :] = (q_cont[15, :] + pi)
+            q_cont[16, :] = -(q_cont[16, :])-pi
+            q_cont[17, :] = -(q_cont[17, :])+pi
+
+
 
         elif PUISSANCE == "60":
             pass
@@ -366,7 +370,7 @@ def main(show=True):
     #q_plot[15, :] = (q_plot[15, :])%(2*pi)
 
 
-    q_recons[:,:] = np.unwrap(q_recons[:,:])
+    #q_recons[:,:] = np.unwrap(q_recons[:,:])
     JOINTS = {
         "Plan élévation hum": 0,
         "élévation hum": 1,
@@ -374,18 +378,18 @@ def main(show=True):
     }
 
     # 1) Détection des pics via le coude (référence du cycle)
-    shoulder_euler = np.rad2deg(q_recons[11:14, :])
-    elbow_euler = np.rad2deg(q_recons[14, :])
+    shoulder_euler = np.rad2deg(q_cont[11:14, :])
+    elbow_euler = np.rad2deg(q_cont[14, :])
 
 
-    plt.plot((np.rad2deg(np.unwrap(q_recons[11, :]))), label="Plan élévation hum kalmann")  #--> Abduction épaule
-    plt.plot((np.rad2deg(np.unwrap(q_recons[12, :]))), label="élévation hum kalmann")  #--> Flexion épaule
-    plt.plot((np.rad2deg(np.unwrap(q_recons[13, :]))), label="Rot axiale hum kalmann")  #-->
+    plt.plot((np.rad2deg(np.unwrap(q_cont[11, :]))), label="Plan élévation hum kalmann")  #--> Abduction épaule
+    plt.plot((np.rad2deg(np.unwrap(q_cont[12, :]))), label="élévation hum kalmann")  #--> Flexion épaule
+    plt.plot((np.rad2deg(np.unwrap(q_cont[13, :]))), label="Rot axiale hum kalmann")  #-->
     plt.plot(elbow_euler, label="Coude kalmann")  #--> Flexion coude
     plt.legend()
     plt.show()
-    plt.plot(q_recons[16,:], label="add")
-    plt.plot(q_recons[17, :], label="flex")
+    plt.plot(q_cont[16,:], label="add")
+    plt.plot(q_cont[17, :], label="flex")
     plt.legend()
     plt.show()
 
@@ -393,10 +397,22 @@ def main(show=True):
     # 2) Enregistrement des données
     # ===========================
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy", q_recons)
+    #qdot_recons_new = np.gradient(q_recons,1/100, axis=1)
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy", qdot_recons)
+    #qddot_recons_new = np.gradient(qdot_recons_new, 1/100, axis=1)
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qddot_inverse_kinematic.npy", qddot_recons)
     print("données IK enregistrées :)")
 
+    dq = np.diff(q_recons, axis=1)
+    qd = qdot_recons[:, :-1]
+
+    def corr(a, b):
+        a = a - a.mean(); b = b - b.mean()
+        den = np.linalg.norm(a) * np.linalg.norm(b)
+        return float(a.dot(b) / den) if den > 0 else np.nan
+
+    c = [corr(dq[i], qd[i]) for i in range(q_recons.shape[0])]
+    print(c)  # plus de valeurs négatives attendues
     # 4) Extraction & normalisation des cycles
 
     FIRST_FRAME_PLOT = 2000
@@ -405,7 +421,7 @@ def main(show=True):
     dof_name = list(model.dof_names)
 
     # angles en degrés
-    q_deg = np.rad2deg(np.unwrap(q_recons, axis=1))
+    q_deg = np.rad2deg(np.unwrap(q_cont, axis=1))
 
     LAYOUT = {
         "Clavicle": [

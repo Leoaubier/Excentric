@@ -5,15 +5,15 @@ from xarray.ufuncs import rad2deg
 from math import pi
 
 
-MODEL_PATH = ("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod")
+MODEL_PATH = ("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod")
 
 DOF_ELBOW = 14          # DoF coude
-MUSC_BIC = 33           # biceps (index)
+MUSC_BIC =33# biceps (index)
 
-ELBOW_FLEX_RAD = np.deg2rad(30)   # posture fixe : coude fléchi ~70°
-BIC_ACTIVATION = 1.0              # activation biceps (le reste = 0)
+ELBOW_FLEX_RAD = np.deg2rad(70)   # posture fixe : coude fléchi ~70°
+BIC_ACTIVATION = 1.0           # activation biceps (le reste = 0)
 
-QD_ABS_MAX = 25.0                  # rad/s
+QD_ABS_MAX = 50.0                  # rad/s
 N_PER_SIDE = 60                   # nb points <0 et >0 (0 inclus en plus)
 
 # grille symétrique autour de 0 : ecc<0, iso=0, con>0

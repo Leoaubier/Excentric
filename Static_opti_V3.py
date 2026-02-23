@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import warnings
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
-MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie.bioMod"
+MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
 
 Q_PATH    = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy"
@@ -18,26 +18,26 @@ TAU_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANC
 EMG_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy"
 
 FIRST, END = 3000, 3200
-RES_BND_know = 2.5
-RES_BND_unknow = 4
+RES_BND_know = 1.5
+RES_BND_unknow = 2.5
 TAU_RES_BND = np.concatenate((
     RES_BND_unknow * np.ones(5),
-    RES_BND_know   * np.ones(5)
+    RES_BND_know   * np.ones(4)
 ))
 EPS_ACT = 1e-6
 
 if MODE_PEDALAGE == "concentric":
     W_TAU = 2.6e10  #concentric
-    W_RES = 1.3e8
+    W_RES = 1.3e7
     W_EMG = 2.5e10
     W_ACT = 2.5e8
     SAT = 9
 
 elif MODE_PEDALAGE == "eccentric":
-    W_TAU = 2.6e10  # concentric
-    W_RES = 1.3e8
+    W_TAU = 2.6e10
+    W_RES = 1.3e7
     W_EMG = 2.5e10
-    W_ACT = 2.5e8
+    W_ACT = 2.5e9
     SAT = 9
 
 
@@ -46,7 +46,7 @@ else:
 
 DELAY = 30 # en ms (EMG en avance sur activation) : facteur 10
 
-active_dof = [6,7,8,9,10,11,12,13,14,15]
+active_dof = [6,7,8,9,10,11,12,13,14]
 
 emg_to_muscle = {
     0: "DeltoideusClavicle",
@@ -137,13 +137,14 @@ def build_nlp_solver(model_path, nb_mus, nb_tau):
     tau_err = tauID - (tau_m + tau_res)
     emg_err = (emg - a) * mask
     a_free  = a * (1 - mask)
+#    a_free = a #si on veut bypass l'emg track
 
     cost = (
         w_tau * ca.sumsqr(tau_err) +
         w_res * ca.sumsqr(tau_res) +
         w_emg * ca.sumsqr(emg_err) +
-        w_act * ca.sumsqr(a_free) +
-        ca.sum(a**SAT)
+        w_act * ca.sumsqr(a_free)
+#       + ca.sum(a**SAT)
     )
 
     solver = ca.nlpsol(
