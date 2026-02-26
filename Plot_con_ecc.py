@@ -7,39 +7,32 @@ from scipy.signal import find_peaks
 # Cycle detection from crank angle (wrap 2pi)
 # ============================================================
 def detect_cycles_from_crank(crank_angle, min_cycle_frames=30):
-    """
-    Détecte les cycles via wrap naturel 2π -> 0.
-    Supposé : crank_angle évolue dans le même sens pour con et ecc.
-    """
     a = np.asarray(crank_angle, float)
-
     da = np.diff(a)
     threshold = np.pi
 
-    # wrap naturel (2π -> 0)
-    wraps = np.where(da < -threshold)[0] + 1
+    if np.median(da) > 0:
+        wraps = np.where(da < -threshold)[0] + 1
+    else:
+        wraps = np.where(da > threshold)[0] + 1
 
     if wraps.size == 0:
         raise RuntimeError("Aucun wrap détecté dans crank_angle.")
 
-    # filtrage cycles trop courts
     good = [wraps[0]]
     for s in wraps[1:]:
         if s - good[-1] >= min_cycle_frames:
             good.append(s)
 
     starts = np.array(good, dtype=int)
-
     if starts.size < 2:
         raise RuntimeError("Pas assez de cycles détectés.")
-
     return starts
 
 
-
-# ============================================================
-# Normalisation par angle (générique multi-signaux)
-# ============================================================
+# =========================
+# Normalisation par angle
+# =========================
 def normalize_cycles_by_crank(signals, crank_angle, cycle_starts, n_points=360, min_samples=10):
     signals = np.asarray(signals, float)
     a = np.unwrap(np.asarray(crank_angle, float))
@@ -53,8 +46,18 @@ def normalize_cycles_by_crank(signals, crank_angle, cycle_starts, n_points=360, 
         i1 = int(cycle_starts[i + 1])
 
         seg_s = signals[:, i0:i1]
-        seg_a = a[i0:i1]                      # PAS de unwrap ici
-        seg_phi = np.mod(seg_a - seg_a[0], 2*np.pi)  # toujours pareil
+        seg_a = a[i0:i1]
+
+        if np.median(np.diff(seg_a)) < 0:
+            seg_a = seg_a[::-1]
+            seg_s = seg_s[:, ::-1]
+
+        seg_a = seg_a - seg_a[0]
+
+        seg_phi = np.mod(seg_a, 2*np.pi)
+        order = np.argsort(seg_phi)
+        seg_phi = seg_phi[order]
+        seg_s   = seg_s[:, order]
 
         keep = np.concatenate(([True], np.diff(seg_phi) > 1e-9))
         seg_phi = seg_phi[keep]
@@ -72,8 +75,8 @@ def normalize_cycles_by_crank(signals, crank_angle, cycle_starts, n_points=360, 
     if len(cycles) == 0:
         raise RuntimeError("Aucun cycle valide (après filtrage).")
 
-    return np.stack(cycles, axis=1), angle_grid
-
+    cycles = np.stack(cycles, axis=1)  # (n_signals, n_cycles, n_points)
+    return cycles, angle_grid
 
 
 
@@ -232,14 +235,11 @@ if __name__ == "__main__":
     crank_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/crank_angle.npy")[FIRST_FRAME_PLOT:END_FRAME_PLOT]
 
     # Remettre l'excentrique dans le même sens temporel (et donc même progression de phase)
-    q_ecc = q_ecc[:, ::-1]
-    act_ecc = act_ecc[:, ::-1]
-    frc_ecc = frc_ecc[:, ::-1]
-    crank_ecc = crank_ecc[::-1]
+
 
     #crank_con = np.mod(crank_con - np.pi, 2 * np.pi)
     #crank_ecc = np.mod(crank_ecc - np.pi, 2 * np.pi)
-
+    #crank_ecc = np.mod(2 * np.pi - crank_ecc, 2 * np.pi)
     # Checks
     assert q_con.shape[1] == crank_con.shape[0]
     assert q_ecc.shape[1] == crank_ecc.shape[0]
@@ -265,7 +265,16 @@ if __name__ == "__main__":
     print(f"Concentrique: {stats_con['act_cycles'].shape[1]} cycles")
     print(f"Excentrique : {stats_ecc['act_cycles'].shape[1]} cycles")
 
+    plt.plot(np.rad2deg(stats_con["angle_grid"]), stats_con["act_mean"][30])
+    plt.plot(np.rad2deg(stats_ecc["angle_grid"]), stats_ecc["act_mean"][30])
+    from scipy.signal import correlate
 
+    x = stats_con["act_mean"][30]
+    y = stats_ecc["act_mean"][30]
+
+    corr = correlate(y - y.mean(), x - x.mean(), mode='full')
+    shift = np.argmax(corr) - (len(x) - 1)
+    print("Shift (deg):", shift)
     # Plots : check cycles
     plot_q_alignment_angle(
         stats_con["q_cycles"], stats_ecc["q_cycles"],

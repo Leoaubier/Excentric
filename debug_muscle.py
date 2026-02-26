@@ -1,18 +1,16 @@
 import numpy as np
 import biorbd
-import pandas as pd
 import matplotlib.pyplot as plt
-import biorbd_casadi as biorbd_c
 import casadi as ca
 
-Muscletoplot = 7
-Firstdoftoplot = 6
+Muscletoplot = 32
+Firstdoftoplot = 14
 # ============================================================
 # USER INPUTS
 # ============================================================
 PLOT = False
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
 MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
@@ -31,44 +29,6 @@ DOF_CONTAINS = None  # ex: "Elbow" / "elbow" / "Shoulder" / etc.
 PLOT_PER_DOF = True
 SHOW_TOP_K_MUSCLES = 6   # dans le report, montre les muscles qui contribuent le plus à la capacité
 # ============================================================
-
-
-def casadi_to_float(x):
-    """
-    Convertit proprement un Scalar/MX/DM/numérique en float.
-    Compatible biorbd_casadi (Scalar) qui ne supporte pas float().
-    """
-    # déjà un python number
-    if isinstance(x, (int, float, np.floating)):
-        return float(x)
-
-    # biorbd Scalar : parfois expose to_mx() / toMX()
-    for attr in ("to_mx", "toMX", "mx", "MX"):
-        if hasattr(x, attr):
-            try:
-                x = getattr(x, attr)()
-                break
-            except TypeError:
-                try:
-                    x = getattr(x, attr)
-                    break
-                except Exception:
-                    pass
-
-    # casadi DM
-    if isinstance(x, ca.DM):
-        return float(x)
-
-    # casadi MX/SX : on l'évalue via une Function sans entrée si constant
-    if isinstance(x, (ca.MX, ca.SX)):
-        f = ca.Function("cst", [], [x])
-        return float(f()["o0"])
-
-    # dernière tentative
-    try:
-        return float(x)
-    except Exception as e:
-        raise TypeError(f"Impossible de convertir en float le type {type(x)}") from e
 
 
 def get_lm_lopt(model_path, q, qdot):
@@ -323,34 +283,37 @@ def main():
         print(f"{model.muscleNames()[i].to_string()} : min Lm/Lopt : {min(lmtilde[i,:])}, max Lm/Lopt : {max(lmtilde[i,:])}")
         print(f"{model.muscleNames()[i].to_string()} : min Lmt-Lts : {min(A[i,:])}")
 
-
     for i in range(model.nbMuscles()):
-        plt.plot(lmtilde[i,:])
-        plt.title(f"{model.muscleNames()[i].to_string()}")
-        plt.xlabel("(lmt-lts)/cos(penn)")
-        plt.ylabel("frame")
-        plt.show()
+        print(f"{model.muscleNames()[i].to_string()} : min Lm/Lopt : {min(R[i, :])}, mean R : {np.mean(R[i, :])}, max Lm/Lopt : {max(R[i, :])}")
 
-    if PLOT_PER_DOF:
-        t = np.arange(0, n_frames)
-
-        for j in dof_idx:
-            plt.figure(figsize=(10, 4))
-            # capacity envelope
-            plt.fill_between(t, cap_neg[j, :], cap_pos[j, :], alpha=0.2, label="muscle capacity envelope")
-            # requested tau
-            plt.plot(t, tau[j, :], linewidth=2, label="tau (requested)")
-
-
-
-            plt.axhline(0, linewidth=1)
-            plt.title(f"{dof_names[j]} | tau vs muscle capacity (frames {FIRST_FRAME}:{LAST_FRAME})")
-            plt.xlabel("Frame")
-            plt.ylabel("Torque [N.m] (or consistent units)")
-            plt.grid(True, alpha=0.3)
-            plt.legend()
-            plt.tight_layout()
+    if PLOT == True:
+        for i in range(model.nbMuscles()):
+            plt.plot(lmtilde[i,:])
+            plt.title(f"{model.muscleNames()[i].to_string()}")
+            plt.xlabel("(lmt-lts)/cos(penn)")
+            plt.ylabel("frame")
             plt.show()
+
+        if PLOT_PER_DOF:
+            t = np.arange(0, n_frames)
+
+            for j in dof_idx:
+                plt.figure(figsize=(10, 4))
+                # capacity envelope
+                plt.fill_between(t, cap_neg[j, :], cap_pos[j, :], alpha=0.2, label="muscle capacity envelope")
+                # requested tau
+                plt.plot(t, tau[j, :], linewidth=2, label="tau (requested)")
+
+
+
+                plt.axhline(0, linewidth=1)
+                plt.title(f"{dof_names[j]} | tau vs muscle capacity (frames {FIRST_FRAME}:{LAST_FRAME})")
+                plt.xlabel("Frame")
+                plt.ylabel("Torque [N.m] (or consistent units)")
+                plt.grid(True, alpha=0.3)
+                plt.legend()
+                plt.tight_layout()
+                plt.show()
 
 
 

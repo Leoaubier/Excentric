@@ -14,7 +14,7 @@ except ModuleNotFoundError:
     biorbd_viz_found = False
 
 MODE_PEDALAGE = "eccentric"
-PUISSANCE = "40"
+PUISSANCE = "80"
 
 
 # Choix des frames à analyser
@@ -90,9 +90,6 @@ def extract_relevant_markers(raw_markers, mapping):
     indices = [mapping[name] for name in MODEL_MARKERS]
     return raw_markers[:, indices, :]
 
-
-def wrap_to_180(angle_deg):
-    return (np.unwrap(angle_deg) + 180) % 360 - 180
 
 def extract_cycles(signal_deg, peaks):
     cycles = []
@@ -294,7 +291,7 @@ def main(show=True):
             print("PB PUISSANCE")
     elif MODE_PEDALAGE == "eccentric":
         if PUISSANCE == "40":
-            init = 2000
+            init = 1000
         elif PUISSANCE == "60":
             init = 3000
         elif PUISSANCE == "80":
@@ -397,14 +394,21 @@ def main(show=True):
     # 2) Enregistrement des données
     # ===========================
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy", q_recons)
-    #qdot_recons_new = np.gradient(q_recons,1/100, axis=1)
+    qdot_recons_new = np.gradient(q_recons,1/100, axis=1)
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy", qdot_recons)
-    #qddot_recons_new = np.gradient(qdot_recons_new, 1/100, axis=1)
+    qddot_recons_new = np.gradient(qdot_recons_new, 1/100, axis=1)
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qddot_inverse_kinematic.npy", qddot_recons)
     print("données IK enregistrées :)")
 
-    dq = np.diff(q_recons, axis=1)
-    qd = qdot_recons[:, :-1]
+
+    q_clean = q_recons.copy()
+    qdot_clean = qdot_recons.copy()
+
+    q_clean = np.unwrap(q_clean)
+    qdot_clean = np.unwrap(qdot_clean)
+
+    dq = np.diff(q_clean[:,100:4000], axis=1)*100
+    qd = qdot_clean[:, 100:4000-1]
 
     def corr(a, b):
         a = a - a.mean(); b = b - b.mean()

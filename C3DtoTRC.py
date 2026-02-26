@@ -138,8 +138,8 @@ class WriteTrcFromC3d(WriteTrc):
 if __name__ == "__main__":
 
     # --- ICI TU ADAPTES LES CHEMINS ---
-    c3d_path = "/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/concentric_40W.c3d"              # ton C3D "bon"
-    trc_out = "/Users/leo/Desktop/Projet/Collecte_25_11/Sidonie/concentric_40W.trc"      # TRC de sortie
+    c3d_path = "/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/eccentric_40W.c3d"              # ton C3D "bon"
+    trc_out = "/Users/leo/Desktop/Projet/Collecte_25_11/Sidonie/eccentric_40W.trc"      # TRC de sortie
 
     markers_names = [
         "Ster", "Xiph", "C7", "T10",

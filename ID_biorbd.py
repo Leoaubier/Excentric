@@ -6,7 +6,7 @@ from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
 MODE_PEDALAGE = "eccentric"
-PUISSANCE = "40"
+PUISSANCE = "80"
 
 #
 # This examples shows how to
@@ -118,11 +118,15 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
 
     i = 14
     plt.figure()
-    plt.plot(qdot_filt[i, :], label="q")
+    plt.plot(qdot_filt[i, :], label="qdot")
     plt.plot(tau[i, :], label="tau")
     plt.legend()
     plt.title("Alignement q / tau")
     plt.show()
+
+    p = tau[i,:] * qdot_filt[i,:]
+    print("fraction excentrique (p<0):", (p < 0).mean())
+    print("mean power:", p.mean())
 
     return tau, dof_name
 
@@ -264,8 +268,8 @@ def main():
             START = 1500  # frame de début (ex : 2000)
             END = 3500  # frame de fin
         elif PUISSANCE == "80":
-            START = 2000  # frame de début (ex : 2000)
-            END = 6000  # frame de fin
+            START = 7000  # frame de début (ex : 2000)
+            END = 10000  # frame de fin
         else:
             print("PB PUISSANCE")
 

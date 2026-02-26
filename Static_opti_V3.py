@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import warnings
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
@@ -17,32 +17,34 @@ QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANC
 TAU_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
 EMG_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy"
 
-FIRST, END = 3000, 3200
-RES_BND_know = 1.5
-RES_BND_unknow = 2.5
-TAU_RES_BND = np.concatenate((
-    RES_BND_unknow * np.ones(5),
-    RES_BND_know   * np.ones(4)
-))
-EPS_ACT = 1e-6
+FIRST, END = 3000, 3100
+EPS_ACT = 1e-10
 
 if MODE_PEDALAGE == "concentric":
-    W_TAU = 2.6e10  #concentric
+    W_TAU = 2.6e10
     W_RES = 1.3e7
     W_EMG = 2.5e10
     W_ACT = 2.5e8
-    SAT = 9
+    SAT = 0
+    RES_BND_know = 1.5
+    RES_BND_unknow = 2.5
 
 elif MODE_PEDALAGE == "eccentric":
     W_TAU = 2.6e10
     W_RES = 1.3e7
     W_EMG = 2.5e10
-    W_ACT = 2.5e9
-    SAT = 9
-
+    W_ACT = 2.5e8
+    SAT = 0
+    RES_BND_know = 2
+    RES_BND_unknow = 3.5
 
 else:
     print("PROBLEME MODE DE PEDALAGE")
+
+TAU_RES_BND = np.concatenate((
+    RES_BND_unknow * np.ones(5),
+    RES_BND_know * np.ones(4)
+))
 
 DELAY = 30 # en ms (EMG en avance sur activation) : facteur 10
 
@@ -136,15 +138,20 @@ def build_nlp_solver(model_path, nb_mus, nb_tau):
 
     tau_err = tauID - (tau_m + tau_res)
     emg_err = (emg - a) * mask
-    a_free  = a * (1 - mask)
-#    a_free = a #si on veut bypass l'emg track
+
+    if W_EMG == 0:
+        a_free = a  # si on veut bypass l'emg track
+
+    else :
+        a_free  = a * (1 - mask)
+#
 
     cost = (
         w_tau * ca.sumsqr(tau_err) +
         w_res * ca.sumsqr(tau_res) +
         w_emg * ca.sumsqr(emg_err) +
         w_act * ca.sumsqr(a_free)
-#       + ca.sum(a**SAT)
+       + ca.sum(a**SAT)
     )
 
     solver = ca.nlpsol(
@@ -306,18 +313,6 @@ def main():
     all_muscle_names = [model_np.muscle(i).name().to_string() for i in range(model_np.nbMuscles())]
 
 
-    plt.figure(figsize=(14, 6))
-    for i in range(nbMus):
-        plt.plot(mus_force[i, :], label=f"{i}: {all_muscle_names[i]}")
-    plt.title("Forces musculaires")
-    plt.xlabel("Frame")
-    plt.ylabel("Force en N")
-    plt.grid(True)
-    plt.legend(ncol=2, fontsize=8)
-    plt.tight_layout()
-    plt.show()
-
-
     ### PLOT DES TAU
 
     import plotly.graph_objects as go
@@ -448,6 +443,36 @@ def main():
     )
 
     act.show()
+
+    # PLOT FORCE
+
+    fo = go.Figure()
+
+    for i, name in enumerate(all_muscle_names):
+        # tau
+        fo.add_trace(
+            go.Scatter(
+                y=mus_force[i, :],
+                mode="lines",
+                name=f"{i}: {name}",
+                legendgroup=f"group_{i}"
+            )
+        )
+
+    fo.update_layout(
+        title="Force musculaire",
+        xaxis_title="Frame",
+        yaxis_title="Force (N)",
+        hovermode="x unified",
+        legend=dict(
+            itemclick="toggle",
+            itemdoubleclick="toggleothers"
+        ),
+        template="plotly_white",
+        height=500
+    )
+
+    fo.show()
     #---------- Plot final -----------
     # ==========================================================
     # DÉTECTION DES CYCLES À PARTIR D’UN DOF DE RÉFÉRENCE
