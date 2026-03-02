@@ -21,6 +21,27 @@ N_POINTS = 360
 MIN_CYCLE_FRAMES = 30
 
 
+def ensure_forward_rotation(crank_angle, *signals):
+    crank_angle = np.asarray(crank_angle, float)
+
+    if np.median(np.diff(crank_angle)) < 0:
+        crank_angle = crank_angle[::-1]
+        signals = [s[..., ::-1] for s in signals]
+        print("Rotation inversée détectée → ECC remis dans le sens croissant")
+
+    return (crank_angle, *signals)
+# ============================================================
+# Forcer même origine angulaire
+# ============================================================
+def set_common_angle_origin(crank_angle):
+    """
+    Force le premier échantillon à 0 rad
+    et remet tout dans [0, 2π]
+    """
+    crank_angle = np.unwrap(np.asarray(crank_angle, float))
+    crank_angle = crank_angle - crank_angle[0]
+    crank_angle = np.mod(crank_angle, 2*np.pi)
+    return crank_angle
 # =========================
 # Cycle detection from crank angle (wrap 2pi)
 # =========================
@@ -148,6 +169,14 @@ def plot_crank_with_starts(crank_angle, starts, title):
 # =========================
 F_con, crank_con, f0c, f1c = load_force_and_angle(CONSTRAINT_CON_PATH, CRANK_CON_PATH, FIRST_FRAME, END_FRAME)
 F_ecc, crank_ecc, f0e, f1e = load_force_and_angle(CONSTRAINT_ECC_PATH, CRANK_ECC_PATH, FIRST_FRAME, END_FRAME)
+
+crank_ecc, F_ecc = ensure_forward_rotation(
+       crank_ecc, F_ecc
+    )
+
+#  ALIGNER L’ORIGINE ANGULAIRE
+crank_con = set_common_angle_origin(crank_con)
+crank_ecc = set_common_angle_origin(crank_ecc)
 
 mean_con, std_con, angle_grid, ncyc_con, starts_con = compute_cycle_stats(F_con, crank_con)
 mean_ecc, std_ecc, _,        ncyc_ecc, starts_ecc = compute_cycle_stats(F_ecc, crank_ecc)

@@ -3,6 +3,40 @@ import biorbd
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
+
+def ensure_forward_rotation(crank_angle, *signals):
+    crank_angle = np.asarray(crank_angle, float)
+
+    if np.median(np.diff(crank_angle)) < 0:
+        crank_angle = crank_angle[::-1]
+        signals = [s[..., ::-1] for s in signals]
+        print("Rotation inversée détectée → ECC remis dans le sens croissant")
+
+    return (crank_angle, *signals)
+# ============================================================
+# Forcer même origine angulaire
+# ============================================================
+def align_on_first_wrap(crank_angle, q, act, frc):
+    """
+    Recale le signal pour que la première discontinuité (wrap)
+    corresponde à 0 rad.
+    La discontinuité est conservée.
+    """
+    crank_angle = np.asarray(crank_angle, float)
+
+    starts = detect_cycles_from_crank(crank_angle)
+
+    first_wrap_index = starts[0]
+    ref_angle = crank_angle[first_wrap_index]
+    print(first_wrap_index)
+    print(ref_angle)
+    crank_aligned = crank_angle[first_wrap_index:]
+    q_aligned = q[:, first_wrap_index:]
+    act_aligned = act[:,first_wrap_index:]
+    frc_aligned = frc[:,first_wrap_index:]
+
+    return crank_aligned, q_aligned, act_aligned, frc_aligned
+
 # ============================================================
 # Cycle detection from crank angle (wrap 2pi)
 # ============================================================
@@ -234,8 +268,22 @@ if __name__ == "__main__":
     frc_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscles_forces.npy")[:, :n_frame]
     crank_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/crank_angle.npy")[FIRST_FRAME_PLOT:END_FRAME_PLOT]
 
-    # Remettre l'excentrique dans le même sens temporel (et donc même progression de phase)
+    # --- ECC ---
+    crank_ecc, q_ecc, act_ecc, frc_ecc = ensure_forward_rotation(
+       crank_ecc, q_ecc, act_ecc, frc_ecc
+    )
 
+    #  ALIGNER L’ORIGINE ANGULAIRE
+    # Détection cycles AVANT réalignement
+
+    crank_con, q_con, act_con, frc_con = align_on_first_wrap(crank_con, q_con, act_con, frc_con)
+    crank_ecc, q_ecc, act_ecc, frc_ecc = align_on_first_wrap(crank_ecc, q_ecc, act_ecc, frc_ecc)
+
+
+    # Remettre l'excentrique dans le même sens temporel (et donc même progression de phase)
+    #if crank_ecc[1] < crank_ecc[0]:
+    #    crank_ecc = crank_ecc[::-1]
+    #    act_ecc = act_ecc[:, ::-1]
 
     #crank_con = np.mod(crank_con - np.pi, 2 * np.pi)
     #crank_ecc = np.mod(crank_ecc - np.pi, 2 * np.pi)

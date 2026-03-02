@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 
@@ -163,6 +163,8 @@ def transform_forces_to_global(model, q_recons, F_local, M_local, angle_local, F
 
     else:
         raise ValueError("mode must be 'interp' or 'nearest'")
+
+    angle_resampled = np.mod(angle_resampled-np.pi, 2*np.pi) #passage angle pédalier droit à gauche
 
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_crank.npy", [Mc_resampled, Fc_resampled])
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", angle_resampled)

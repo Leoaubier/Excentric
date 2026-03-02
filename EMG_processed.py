@@ -12,7 +12,7 @@ import numpy as np
 from pyomeca import Analogs
 
 MODE_PEDALAGE = "eccentric"
-PUISSANCE = "80"
+PUISSANCE = "40"
 
 
 def resample_emg_to_100hz(emg, target_fs=100):

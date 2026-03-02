@@ -7,17 +7,6 @@ FIRST_FRAME_PLOT = 2000
 END_FRAME_PLOT = 6000
 
 
-def wrap_to_pi(theta_rad):
-    """Ramène un angle (rad) dans [-pi, pi)."""
-    theta = np.asarray(theta_rad, float)
-    return (theta + np.pi) % (2*np.pi) - np.pi
-
-def wrap_to_180(theta_deg):
-    """Ramène un angle (deg) dans [-180, 180)."""
-    theta = np.asarray(theta_deg, float)
-    return (theta + 180.0) % 360.0 - 180.0
-
-
 # ============================================================
 # Cycle detection from crank angle (wrap 2pi -> 0)
 # ============================================================
@@ -172,8 +161,8 @@ crank_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISS
 emg_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/emg_processed_resampled.npy")[:, FIRST_FRAME_PLOT:END_FRAME_PLOT]
 crank_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/crank_angle.npy")[FIRST_FRAME_PLOT:END_FRAME_PLOT]
 
-crank_con = np.mod(crank_con - np.pi, 2*np.pi)
-crank_ecc = np.mod(crank_ecc - np.pi, 2*np.pi)
+#crank_con = np.mod(crank_con - np.pi, 2*np.pi)
+#crank_ecc = np.mod(crank_ecc - np.pi, 2*np.pi)
 
 
 au = np.unwrap(crank_ecc)
@@ -213,6 +202,14 @@ for group in group_order:
 print("Nouvel ordre indices:", ordered_indices)
 
 n_muscles = emg_con.shape[0]
+
+
+# ============================================================
+# PARAMETERS
+# ============================================================
+DISTANCE = 100     # <-- à ajuster selon cadence (frames / cycle)
+N_POINTS = 200
+
 
 # ============================================================
 # COMPUTE STATS
@@ -283,6 +280,9 @@ plt.show()
 # ============================================================
 LEVELS = [0.40, 0.60, 0.80]
 LW_MAP = {0.40: 2.0, 0.60: 5.0, 0.80: 8.0}
+THR = 0.05  # 30%
+N = N_POINTS
+deg_per_idx = 360.0 / N
 
 def plot_polar_levels(ax, mean_profiles, muscle_names, angle_grid, direction, title=""):
     """
