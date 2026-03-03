@@ -4,9 +4,7 @@ import matplotlib.pyplot as plt
 # =========================
 # SETTINGS
 # =========================
-PUISSANCE = "40"
-FIRST_FRAME = 2000
-END_FRAME = 6000  # exclus
+PUISSANCE = "80"
 
 BASE_CON = f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W"
 BASE_ECC = f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W"
@@ -19,6 +17,24 @@ CRANK_ECC_PATH      = f"{BASE_ECC}/crank_angle.npy"
 
 N_POINTS = 360
 MIN_CYCLE_FRAMES = 30
+
+if PUISSANCE == "40":
+    START_CON = 2000  # frame de début (ex : 2000)
+    END_CON = 6000  # frame de fin
+    START_ECC = 2000  # frame de début (ex : 2000)
+    END_ECC = 5000  # frame de fin
+elif PUISSANCE == "60":
+    START_CON = 2000  # frame de début (ex : 2000)
+    END_CON = 5000  # frame de fin
+    START_ECC = 1500  # frame de début (ex : 2000)
+    END_ECC = 3500  # frame de fin
+elif PUISSANCE == "80":
+    START_CON = 1500  # frame de début (ex : 2000)
+    END_CON = 4000  # frame de fin
+    START_ECC = 7000  # frame de début (ex : 2000)
+    END_ECC = 10000  # frame de fin
+else:
+    print("PB PUISSANCE")
 
 
 def ensure_forward_rotation(crank_angle, *signals):
@@ -167,19 +183,18 @@ def plot_crank_with_starts(crank_angle, starts, title):
 # =========================
 # MAIN
 # =========================
-F_con, crank_con, f0c, f1c = load_force_and_angle(CONSTRAINT_CON_PATH, CRANK_CON_PATH, FIRST_FRAME, END_FRAME)
-F_ecc, crank_ecc, f0e, f1e = load_force_and_angle(CONSTRAINT_ECC_PATH, CRANK_ECC_PATH, FIRST_FRAME, END_FRAME)
+F_con, crank_con, f0c, f1c = load_force_and_angle(CONSTRAINT_CON_PATH, CRANK_CON_PATH, START_CON, END_CON)
+F_ecc, crank_ecc, f0e, f1e = load_force_and_angle(CONSTRAINT_ECC_PATH, CRANK_ECC_PATH, START_ECC, END_ECC)
 
 crank_ecc, F_ecc = ensure_forward_rotation(
        crank_ecc, F_ecc
     )
 
-#  ALIGNER L’ORIGINE ANGULAIRE
-crank_con = set_common_angle_origin(crank_con)
-crank_ecc = set_common_angle_origin(crank_ecc)
+#crank_con = set_common_angle_origin(crank_con)
+#crank_ecc = set_common_angle_origin(crank_ecc)
 
 mean_con, std_con, angle_grid, ncyc_con, starts_con = compute_cycle_stats(F_con, crank_con)
-mean_ecc, std_ecc, _,        ncyc_ecc, starts_ecc = compute_cycle_stats(F_ecc, crank_ecc)
+mean_ecc, std_ecc, angle, ncyc_ecc, starts_ecc = compute_cycle_stats(F_ecc, crank_ecc)
 
 x_deg = (np.rad2deg(angle_grid) % 360)
 

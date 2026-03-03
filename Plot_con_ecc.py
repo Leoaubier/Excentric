@@ -3,113 +3,67 @@ import biorbd
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
+PUISSANCE = "40"
+
 
 def ensure_forward_rotation(crank_angle, *signals):
+
     crank_angle = np.asarray(crank_angle, float)
 
     if np.median(np.diff(crank_angle)) < 0:
         crank_angle = crank_angle[::-1]
         signals = [s[..., ::-1] for s in signals]
-        print("Rotation inversée détectée → ECC remis dans le sens croissant")
+        print("ECC inversé → remis dans le sens croissant")
 
     return (crank_angle, *signals)
-# ============================================================
-# Forcer même origine angulaire
-# ============================================================
-def align_on_first_wrap(crank_angle, q, act, frc):
-    """
-    Recale le signal pour que la première discontinuité (wrap)
-    corresponde à 0 rad.
-    La discontinuité est conservée.
-    """
-    crank_angle = np.asarray(crank_angle, float)
 
-    starts = detect_cycles_from_crank(crank_angle)
 
-    first_wrap_index = starts[0]
-    ref_angle = crank_angle[first_wrap_index]
-    print(first_wrap_index)
-    print(ref_angle)
-    crank_aligned = crank_angle[first_wrap_index:]
-    q_aligned = q[:, first_wrap_index:]
-    act_aligned = act[:,first_wrap_index:]
-    frc_aligned = frc[:,first_wrap_index:]
-
-    return crank_aligned, q_aligned, act_aligned, frc_aligned
-
-# ============================================================
-# Cycle detection from crank angle (wrap 2pi)
-# ============================================================
 def detect_cycles_from_crank(crank_angle, min_cycle_frames=30):
-    a = np.asarray(crank_angle, float)
+
+    a = np.asarray(crank_angle)
     da = np.diff(a)
-    threshold = np.pi
+    wraps = np.where(da < -np.pi)[0] + 1
 
-    if np.median(da) > 0:
-        wraps = np.where(da < -threshold)[0] + 1
-    else:
-        wraps = np.where(da > threshold)[0] + 1
-
-    if wraps.size == 0:
-        raise RuntimeError("Aucun wrap détecté dans crank_angle.")
-
-    good = [wraps[0]]
+    valid = [wraps[0]]
     for s in wraps[1:]:
-        if s - good[-1] >= min_cycle_frames:
-            good.append(s)
+        if s - valid[-1] >= min_cycle_frames:
+            valid.append(s)
 
-    starts = np.array(good, dtype=int)
-    if starts.size < 2:
-        raise RuntimeError("Pas assez de cycles détectés.")
-    return starts
+    return np.array(valid)
 
 
 # =========================
 # Normalisation par angle
 # =========================
-def normalize_cycles_by_crank(signals, crank_angle, cycle_starts, n_points=360, min_samples=10):
-    signals = np.asarray(signals, float)
-    a = np.unwrap(np.asarray(crank_angle, float))
+def normalize_cycles_by_crank(signals, crank_angle, starts, n_points=360):
 
-    n_signals, T = signals.shape
-    angle_grid = np.linspace(0.0, 2*np.pi, n_points, endpoint=False)
+    signals = np.asarray(signals)
+    a = np.unwrap(crank_angle)
 
+    angle_grid = np.linspace(0, 2*np.pi, n_points, endpoint=False)
     cycles = []
-    for i in range(len(cycle_starts) - 1):
-        i0 = int(cycle_starts[i])
-        i1 = int(cycle_starts[i + 1])
 
+    for i in range(len(starts)-1):
+
+        i0, i1 = starts[i], starts[i+1]
+
+        seg_a = a[i0:i1] - a[i0]
         seg_s = signals[:, i0:i1]
-        seg_a = a[i0:i1]
 
-        if np.median(np.diff(seg_a)) < 0:
-            seg_a = seg_a[::-1]
-            seg_s = seg_s[:, ::-1]
+        phi = np.mod(seg_a, 2*np.pi)
+        order = np.argsort(phi)
 
-        seg_a = seg_a - seg_a[0]
+        phi = phi[order]
+        seg_s = seg_s[:, order]
 
-        seg_phi = np.mod(seg_a, 2*np.pi)
-        order = np.argsort(seg_phi)
-        seg_phi = seg_phi[order]
-        seg_s   = seg_s[:, order]
+        interp = np.zeros((signals.shape[0], n_points))
 
-        keep = np.concatenate(([True], np.diff(seg_phi) > 1e-9))
-        seg_phi = seg_phi[keep]
-        seg_s   = seg_s[:, keep]
+        for m in range(signals.shape[0]):
+            interp[m] = np.interp(angle_grid, phi, seg_s[m])
 
-        if seg_phi.size < min_samples:
-            continue
+        cycles.append(interp)
 
-        seg_norm = np.zeros((n_signals, n_points))
-        for k in range(n_signals):
-            seg_norm[k] = np.interp(angle_grid, seg_phi, seg_s[k])
-
-        cycles.append(seg_norm)
-
-    if len(cycles) == 0:
-        raise RuntimeError("Aucun cycle valide (après filtrage).")
-
-    cycles = np.stack(cycles, axis=1)  # (n_signals, n_cycles, n_points)
+    cycles = np.stack(cycles, axis=1)
     return cycles, angle_grid
 
 
@@ -248,46 +202,55 @@ def plot_grid_mean_std_angle(mean_con, std_con, mean_ecc, std_ecc, muscle_names,
 # MAIN (à brancher sur tes arrays)
 # ============================================================
 if __name__ == "__main__":
-    PUISSANCE = "40"
-    FIRST_FRAME_PLOT = 3000
-    END_FRAME_PLOT = 4000
-    n_frame = END_FRAME_PLOT - FIRST_FRAME_PLOT
+    if PUISSANCE == "40":
+        START_CON = 3000  # frame de début (ex : 2000)
+        END_CON = 4000  # frame de fin
+        START_ECC = 3000  # frame de début (ex : 2000)
+        END_ECC = 4000  # frame de fin
+    elif PUISSANCE == "60":
+        START_CON = 2000  # frame de début (ex : 2000)
+        END_CON = 5000  # frame de fin
+        START_ECC = 1500  # frame de début (ex : 2000)
+        END_ECC = 3500  # frame de fin
+    elif PUISSANCE == "80":
+        START_CON = 1500  # frame de début (ex : 2000)
+        END_CON = 4000  # frame de fin
+        START_ECC = 7000  # frame de début (ex : 2000)
+        END_ECC = 10000  # frame de fin
+    else:
+        print("PB PUISSANCE")
+
 
     model = biorbd.Model("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod")
     muscle_names = [model.muscleNames()[i].to_string() for i in range(int(model.nbMuscles()))]
 
     # --- Concentrique ---
-    q_con   = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, FIRST_FRAME_PLOT:END_FRAME_PLOT]
-    act_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :n_frame]
-    frc_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscles_forces.npy")[:, :n_frame]
-    crank_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/crank_angle.npy")[FIRST_FRAME_PLOT:END_FRAME_PLOT]
+    q_con   = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, START_CON:END_CON]
+    act_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :END_CON-START_CON]
+    frc_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscles_forces.npy")[:, :END_CON-START_CON]
+    crank_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/crank_angle.npy")[START_CON:END_CON]
 
     # --- Excentrique ---
-    q_ecc   = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, FIRST_FRAME_PLOT:END_FRAME_PLOT]
-    act_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :n_frame]
-    frc_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscles_forces.npy")[:, :n_frame]
-    crank_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/crank_angle.npy")[FIRST_FRAME_PLOT:END_FRAME_PLOT]
+    q_ecc   = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, START_ECC:END_ECC]
+    act_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :END_ECC-START_ECC]
+    frc_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscles_forces.npy")[:, :END_ECC-START_ECC]
+    crank_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/crank_angle.npy")[START_ECC:END_ECC]
 
     # --- ECC ---
-    crank_ecc, q_ecc, act_ecc, frc_ecc = ensure_forward_rotation(
-       crank_ecc, q_ecc, act_ecc, frc_ecc
-    )
+
 
     #  ALIGNER L’ORIGINE ANGULAIRE
     # Détection cycles AVANT réalignement
 
-    crank_con, q_con, act_con, frc_con = align_on_first_wrap(crank_con, q_con, act_con, frc_con)
-    crank_ecc, q_ecc, act_ecc, frc_ecc = align_on_first_wrap(crank_ecc, q_ecc, act_ecc, frc_ecc)
 
 
     # Remettre l'excentrique dans le même sens temporel (et donc même progression de phase)
     #if crank_ecc[1] < crank_ecc[0]:
     #    crank_ecc = crank_ecc[::-1]
     #    act_ecc = act_ecc[:, ::-1]
+    crank_ecc, q_ecc, act_ecc, frc_ecc = ensure_forward_rotation(crank_ecc, q_ecc, act_ecc, frc_ecc)
 
-    #crank_con = np.mod(crank_con - np.pi, 2 * np.pi)
-    #crank_ecc = np.mod(crank_ecc - np.pi, 2 * np.pi)
-    #crank_ecc = np.mod(2 * np.pi - crank_ecc, 2 * np.pi)
+
     # Checks
     assert q_con.shape[1] == crank_con.shape[0]
     assert q_ecc.shape[1] == crank_ecc.shape[0]
@@ -317,8 +280,8 @@ if __name__ == "__main__":
     plt.plot(np.rad2deg(stats_ecc["angle_grid"]), stats_ecc["act_mean"][30])
     from scipy.signal import correlate
 
-    x = stats_con["act_mean"][30]
-    y = stats_ecc["act_mean"][30]
+    x = stats_con["q_cycles"][0]
+    y = stats_ecc["q_cycles"][0]
 
     corr = correlate(y - y.mean(), x - x.mean(), mode='full')
     shift = np.argmax(corr) - (len(x) - 1)

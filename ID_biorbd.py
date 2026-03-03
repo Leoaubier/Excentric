@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
-MODE_PEDALAGE = "eccentric"
-PUISSANCE = "80"
+MODE_PEDALAGE = "concentric"
+PUISSANCE = "60"
 
 #
 # This examples shows how to
@@ -234,6 +234,59 @@ def plot_segment_grid(
     plt.tight_layout(rect=[0, 0, 0.95, 1])  # laisse de la place à la légende
     plt.show()
 
+
+def eccentric_index_per_cycle(tau, qdot, peaks, dof_name):
+    """
+    Calcule un indice excentrique par cycle et par DoF
+    basé sur la puissance articulaire P = tau * qdot
+
+    Retour :
+        results_dict[dof] = {
+            "mean_index": ...,
+            "std_index": ...,
+            "mean_power": ...,
+            "ecc_fraction": ...
+        }
+    """
+
+    n_dof = tau.shape[0]
+    results = {}
+    for d in range(6,n_dof):
+
+        cycle_indices = []
+
+        for i in range(len(peaks) - 1):
+            i0, i1 = peaks[i], peaks[i + 1]
+
+            tau_seg = tau[d, i0:i1]
+            qdot_seg = qdot[d, i0:i1]
+
+            power = tau_seg * qdot_seg
+
+            if np.sum(np.abs(power)) == 0:
+                continue
+
+            ecc_energy = np.sum(np.abs(power[power < 0]))
+            total_energy = np.sum(np.abs(power))
+
+            ecc_index = ecc_energy / total_energy
+            cycle_indices.append(ecc_index)
+
+        if len(cycle_indices) == 0:
+            continue
+
+        cycle_indices = np.array(cycle_indices)
+
+        results[dof_name[d]] = {
+            "mean_index": np.mean(cycle_indices),
+            "std_index": np.std(cycle_indices),
+            "mean_power": np.mean(tau[d, :] * qdot[d, :]),
+            "ecc_fraction_frames": np.mean((tau[d, :] * qdot[d, :]) < 0)
+        }
+
+    return results
+
+
 def main():
     # Load a predefined model
 
@@ -313,6 +366,30 @@ def main():
     peaks_sel, _ = find_peaks(ref_signal_sel, distance=100)
 
     print("Nombre de cycles détectés :", len(peaks_sel) - 1)
+
+    #====== Vérif mode de pédalage
+
+    # Charger qdot filtré pour la même fenêtre
+    qdot_full = np.load(qdot_path)
+    qdot_sel = qdot_full[:, START:END]
+
+    ecc_results = eccentric_index_per_cycle(
+        tau_sel,
+        qdot_sel,
+        peaks_sel,
+        dof_name
+    )
+    print("\n================ INDICE EXCENTRIQUE PAR DOF ================\n")
+
+    print(f"{'DoF':60s} | {'Ecc Index':>10s} | {'Std':>8s} | {'% Frames P<0':>15s}")
+    print("-" * 100)
+
+    for dof, vals in ecc_results.items():
+        print(f"{dof:60s} | "
+              f"{vals['mean_index']:.3f}      | "
+              f"{vals['std_index']:.3f}   | "
+              f"{100 * vals['ecc_fraction_frames']:.1f} %")
+
     # ==========================================================
     # === SUBPLOT : COUPLES / FORCES PAR DOF SUR LE CYCLE ===
     # =========================================================
@@ -349,7 +426,6 @@ def main():
         n_points=200,
         ylabel="Torque (N·m)"
     )
-
 
 
 
