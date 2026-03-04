@@ -20,7 +20,7 @@ MIN_CYCLE_FRAMES = 30
 
 if PUISSANCE == "40":
     START_CON = 2000  # frame de début (ex : 2000)
-    END_CON = 6000  # frame de fin
+    END_CON = 5200  # frame de fin
     START_ECC = 2000  # frame de début (ex : 2000)
     END_ECC = 5000  # frame de fin
 elif PUISSANCE == "60":

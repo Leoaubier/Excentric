@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "80"
 
 
@@ -167,7 +167,7 @@ def transform_forces_to_global(model, q_recons, F_local, M_local, angle_local, F
     angle_resampled = np.mod(angle_resampled-np.pi, 2*np.pi) #passage angle pédalier droit à gauche
 
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_crank.npy", [Mc_resampled, Fc_resampled])
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", angle_resampled)
+    #np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", angle_resampled)
     # ----------------------------
     # 3) Transformation en global
     # ----------------------------
@@ -195,7 +195,41 @@ def transform_forces_to_global(model, q_recons, F_local, M_local, angle_local, F
         F_global[:, i] = Fg
         M_global[:, i] = Mg
 
-    return F_global, M_global
+    return F_global, M_global, angle_resampled
+
+def compute_pedal_angle_from_ground(model, q_recons, unwrap=False):
+    """
+    Angle de la pédale gauche autour de l’axe Y du ground.
+    Le zéro correspond à l’orientation du repère ground.
+    """
+
+    n_frames = q_recons.shape[1]
+    theta = np.zeros(n_frames)
+
+    for i in range(n_frames):
+
+        RT_ground = model.segments["ground"].frame(q_recons[:, i])
+
+        RT_pedal = model.segments["Pedal_left"].frame(q_recons[:, i])
+        RT_ground_ped = np.linalg.inv(RT_ground) @ RT_pedal
+
+        p = RT_ground_ped[:3, 3]
+
+        # axe Y local de la pédale exprimé dans le global
+        y = p[1]
+        z = p[2]
+
+        # Rotation autour de X → projection dans plan YZ
+        angle = np.arctan2(z, y)
+
+        # Bornage dans [0, 2π]
+        theta[i] = -angle #% (2 * np.pi)
+
+    if unwrap:
+        theta = np.unwrap(theta)
+
+
+    return theta
 
 
 
@@ -240,19 +274,25 @@ def main(show=True):
     if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
         if PUISSANCE == "40":
             init = 4000
+            dephasage = 0 #frame retard velo
         elif PUISSANCE == "60":
             init = 3000
+            dephasage = 0
         elif PUISSANCE == "80":
             init = 3000
+            dephasage = 0
         else:
             print("PB PUISSANCE")
     elif MODE_PEDALAGE == "eccentric":
         if PUISSANCE == "40":
             init = 2000
+            dephasage = 0
         elif PUISSANCE == "60":
             init = 3000
+            dephasage = 0
         elif PUISSANCE == "80":
             init = 8000
+            dephasage = 0
         else:
             print("PB PUISSANCE")
     else:
@@ -268,12 +308,14 @@ def main(show=True):
         if i % 200 == 0:
             print(f"Frame {i}/{n_frames}")
 
-
+    q_recons=q_recons[:,dephasage:]
 
     print("IK terminé.")
 
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/inverse_kinematic_pedal.npy", q_recons)
     print("données IK enregistrées :)")
+
+
 
     all_data = []
     with open(sensix_path, 'r') as f:
@@ -293,7 +335,7 @@ def main(show=True):
     plt.legend()
     plt.show()
 
-    global_force, global_moment = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:], all_data[19,:],all_data[21:24,:], all_data[24:27,:])
+    global_force, global_moment, crank_angle = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:], all_data[19,:],all_data[21:24,:], all_data[24:27,:])
     global_constraint = [global_moment, global_force]
     np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_global.npy", global_constraint)
 
@@ -318,6 +360,22 @@ def main(show=True):
         b = bioviz.Viz(loaded_model=modelviz)
         b.load_movement(q_recons)
         b.exec()
+
+    theta = compute_pedal_angle_from_ground(model, q_recons)
+    diff = crank_angle[100]-theta[100] #3,28 rad
+    print(diff)
+    theta = (theta + diff) % (2*np.pi)
+    plt.plot(theta, label = "angle recalculé")
+    plt.plot(crank_angle, label = "angle vélo")
+    plt.title("angle pédale / pédalier")
+    plt.xlabel("Frame")
+    plt.ylabel("angle (rad")
+    plt.legend()
+    plt.show()
+
+    #np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", crank_angle)
+    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", theta)
+
 
 if __name__ == "__main__":
     main(show=True)

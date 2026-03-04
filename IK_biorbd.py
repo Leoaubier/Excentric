@@ -283,19 +283,25 @@ def main(show=True):
     if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
         if PUISSANCE == "40":
             init = 4000
+            dephasage = 0
         elif PUISSANCE == "60":
             init = 3000
+            dephasage = 0
         elif PUISSANCE == "80":
             init = 3000
+            dephasage = 0
         else:
             print("PB PUISSANCE")
     elif MODE_PEDALAGE == "eccentric":
         if PUISSANCE == "40":
             init = 1000
+            dephasage = 0
         elif PUISSANCE == "60":
             init = 3000
+            dephasage = 0
         elif PUISSANCE == "80":
             init = 8000
+            dephasage = 0
         else:
             print("PB PUISSANCE")
     else:
@@ -312,6 +318,9 @@ def main(show=True):
             print(f"Frame {i}/{n_frames}")
 
     print("IK Kalmann terminé.")
+    q_recons = q_recons[:,dephasage:]
+    qdot_recons = qdot_recons[:,dephasage:]
+    qddot_recons = qddot_recons[:,dephasage:]
 
     q_cont = q_recons.copy()
 

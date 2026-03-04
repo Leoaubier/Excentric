@@ -3,7 +3,7 @@ import biorbd
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
-PUISSANCE = "40"
+PUISSANCE = "60"
 
 
 def ensure_forward_rotation(crank_angle, *signals):
@@ -203,10 +203,10 @@ def plot_grid_mean_std_angle(mean_con, std_con, mean_ecc, std_ecc, muscle_names,
 # ============================================================
 if __name__ == "__main__":
     if PUISSANCE == "40":
-        START_CON = 3000  # frame de début (ex : 2000)
-        END_CON = 4000  # frame de fin
-        START_ECC = 3000  # frame de début (ex : 2000)
-        END_ECC = 4000  # frame de fin
+        START_CON = 2000  # frame de début (ex : 2000)
+        END_CON = 5200  # frame de fin
+        START_ECC = 2000  # frame de début (ex : 2000)
+        END_ECC = 5000  # frame de fin
     elif PUISSANCE == "60":
         START_CON = 2000  # frame de début (ex : 2000)
         END_CON = 5000  # frame de fin

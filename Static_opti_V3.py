@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import warnings
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
@@ -17,7 +17,6 @@ QDOT_PATH = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANC
 TAU_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
 EMG_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/emg_processed_resampled.npy"
 
-FIRST, END = 3000, 4000
 EPS_ACT = 1e-10
 
 if MODE_PEDALAGE == "concentric":
@@ -28,6 +27,17 @@ if MODE_PEDALAGE == "concentric":
     SAT = 0
     RES_BND_know = 1.5
     RES_BND_unknow = 2.5
+    if PUISSANCE == "40":
+        FIRST = 2000  # frame de début (ex : 2000)
+        END = 5200  # frame de fin
+    elif PUISSANCE == "60":
+        FIRST = 2000  # frame de début (ex : 2000)
+        END = 5000  # frame de fin
+    elif PUISSANCE == "80":
+        FIRST = 1500  # frame de début (ex : 2000)
+        END = 4000  # frame de fin
+    else:
+        print("PB PUISSANCE")
 
 elif MODE_PEDALAGE == "eccentric":
     W_TAU = 2.6e10
@@ -37,6 +47,17 @@ elif MODE_PEDALAGE == "eccentric":
     SAT = 0
     RES_BND_know = 2
     RES_BND_unknow = 3.5
+    if PUISSANCE == "40":
+        FIRST = 2000  # frame de début (ex : 2000)
+        END = 5000  # frame de fin
+    elif PUISSANCE == "60":
+        FIRST = 1500  # frame de début (ex : 2000)
+        END = 3500  # frame de fin
+    elif PUISSANCE == "80":
+        FIRST = 7000  # frame de début (ex : 2000)
+        END = 10000  # frame de fin
+    else:
+        print("PB PUISSANCE")
 
 else:
     print("PROBLEME MODE DE PEDALAGE")

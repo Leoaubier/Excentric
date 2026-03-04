@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
-MODE_PEDALAGE = "concentric"
-PUISSANCE = "60"
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "40"
 
 #
 # This examples shows how to
@@ -304,7 +304,7 @@ def main():
     if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
         if PUISSANCE == "40":
             START = 2000  # frame de début (ex : 2000)
-            END = 6000  # frame de fin
+            END = 5200  # frame de fin
         elif PUISSANCE == "60":
             START = 2000  # frame de début (ex : 2000)
             END = 5000  # frame de fin

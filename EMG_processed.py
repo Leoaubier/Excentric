@@ -182,3 +182,18 @@ np.save(
 )
 
 plt.show()
+
+plt.plot(emg_resampled.values[7][2000:3000])
+plt.title("EMG brut")
+plt.xlabel("Frame")
+plt.ylabel("mV")
+plt.show()
+
+plt.plot(emg_processed_resampled.values[7][2000:3000])
+plt.title("EMG traité")
+plt.xlabel("Frame")
+plt.ylabel("Activation")
+plt.show()
+
+
+
