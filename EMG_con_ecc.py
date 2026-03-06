@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-PUISSANCE = "80"
+PUISSANCE = "40"
 
 
 # ============================================================
@@ -284,7 +284,9 @@ if __name__ == "__main__":
     for j in range(len(ordered_indices), len(axes)):
         fig.delaxes(axes[j])
 
-    fig.legend(loc="lower right")
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="lower right", bbox_to_anchor=(0.98, 0.02),
+               frameon=True, fontsize=11)
     fig.suptitle(f"EMG – Con vs Ecc ({PUISSANCE}W)")
     plt.tight_layout()
     plt.show()

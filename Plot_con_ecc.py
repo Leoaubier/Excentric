@@ -3,7 +3,7 @@ import biorbd
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
-PUISSANCE = "60"
+PUISSANCE = "40"
 
 
 def ensure_forward_rotation(crank_angle, *signals):

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 #

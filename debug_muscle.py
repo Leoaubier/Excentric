@@ -3,14 +3,14 @@ import biorbd
 import matplotlib.pyplot as plt
 import casadi as ca
 
-Muscletoplot = 32
-Firstdoftoplot = 14
+Muscletoplot = 20
+Firstdoftoplot = 6
 # ============================================================
 # USER INPUTS
 # ============================================================
 PLOT = False
 
-MODE_PEDALAGE = "eccentric"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
@@ -19,8 +19,8 @@ QDOT_PATH     = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUIS
 TAU_PATH  = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
 
 
-FIRST_FRAME = 3000
-LAST_FRAME  = 4000                    # None = jusqu'à la fin
+FIRST_FRAME = 3500
+LAST_FRAME  = 3600                    # None = jusqu'à la fin
 
 # DoF filter: laisser None pour tout, ou mettre un mot-clé (ex: "Elbow")
 DOF_CONTAINS = None  # ex: "Elbow" / "elbow" / "Shoulder" / etc.

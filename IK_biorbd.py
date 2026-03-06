@@ -14,7 +14,7 @@ except ModuleNotFoundError:
     biorbd_viz_found = False
 
 MODE_PEDALAGE = "eccentric"
-PUISSANCE = "80"
+PUISSANCE = "40"
 
 
 # Choix des frames à analyser
@@ -483,7 +483,8 @@ def main(show=True):
         labels=[MODE_PEDALAGE + " " + PUISSANCE + " W"]
     )
 
-
+    for i in range(qdot_recons.shape[0]):
+        print(f"vitesse {model.dof_names[i]}, min {np.min(qdot_recons[i,FIRST_FRAME_PLOT:END_FRAME_PLOT])}, mean {np.mean(qdot_recons[i,FIRST_FRAME_PLOT:END_FRAME_PLOT])}, max {np.max(qdot_recons[i,FIRST_FRAME_PLOT:END_FRAME_PLOT])}")
 
     # Animate the results if biorbd viz is installed
     if show and biorbd_viz_found:

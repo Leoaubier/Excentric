@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import warnings
 
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
 MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
@@ -22,13 +22,13 @@ EPS_ACT = 1e-10
 if MODE_PEDALAGE == "concentric":
     W_TAU = 2.6e10
     W_RES = 1.3e7
-    W_EMG = 2.5e10
+    W_EMG = 2.5e9
     W_ACT = 2.5e8
     SAT = 0
     RES_BND_know = 1.5
     RES_BND_unknow = 2.5
     if PUISSANCE == "40":
-        FIRST = 2000  # frame de début (ex : 2000)
+        FIRST = 2000  # frame de début (ex : 2000 / 5200) OK
         END = 5200  # frame de fin
     elif PUISSANCE == "60":
         FIRST = 2000  # frame de début (ex : 2000)
@@ -42,13 +42,13 @@ if MODE_PEDALAGE == "concentric":
 elif MODE_PEDALAGE == "eccentric":
     W_TAU = 2.6e10
     W_RES = 1.3e7
-    W_EMG = 2.5e10
+    W_EMG = 2.5e9
     W_ACT = 2.5e8
     SAT = 0
     RES_BND_know = 2
     RES_BND_unknow = 3.5
     if PUISSANCE == "40":
-        FIRST = 2000  # frame de début (ex : 2000)
+        FIRST = 2000  # frame de début (ex : 2000) OK
         END = 5000  # frame de fin
     elif PUISSANCE == "60":
         FIRST = 1500  # frame de début (ex : 2000)
@@ -80,8 +80,8 @@ emg_to_muscle = {
     5: "BIC",
     6: "TrapeziusScapula_M",
     7: "TrapeziusScapula_I",
-    8: "LatissimusDorsi",
-    9: "Pectoralis",
+    8: "LatissimusDorsi",  #_M
+    9: "PectoralisMajor",  #MajorThorax_M
     #10: "brachio" #pas dans le modèle
 }
 
@@ -224,6 +224,7 @@ def main():
     tau_musc = np.zeros((nbTau, n_frames))
     tau_err = np.zeros((nbTau, n_frames))
     mus_force = np.zeros((nbMus, n_frames))
+    emg_err = np.zeros((len(track_idx), n_frames))
 
 
     t0 = time.time()
@@ -251,6 +252,8 @@ def main():
         tau_res[:,k] = xopt[nbMus:]
         mus_act[:,k] = a_opt
 
+        emg_err[:,k] = emg[emg_idx,k]-a_opt[track_idx] #à vérifier
+
         states = model_np.stateSet()
         for i in range(nbMus):
             states[i].setActivation(a_opt[i])
@@ -262,6 +265,7 @@ def main():
         tau_err[:,k] = tau[:,k]-(tau_musc[:,k]+tau_res[:,k])
 
         mus_force[:,k] = model_np.muscleForces(states, q[:,k], qdot[:,k]).to_array()
+
 
         print("Coût CasADi =", f_cost(x0, p).full())
         print("Coût Sortie =", f_cost(xopt, p).full())
