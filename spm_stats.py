@@ -12,6 +12,7 @@ from matplotlib.gridspec import GridSpec
 # Réglages généraux
 # ==============================
 N_POINTS = 200  # points par cycle pour normalisation
+ESSAI = "Collecte_25_11"
 PUISSANCES = [40]
 MODES = ["concentric", "eccentric"]
 
@@ -558,8 +559,8 @@ def load_all_trials(base_path, model, muscle_names):
 # ==============================
 # Main run : analyse complète
 # ==============================
-BASE_PATH = "/Users/leo/Desktop/Projet/Collecte_25_11"
-model_path = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
+BASE_PATH = f"/Users/leo/Desktop/Projet/{ESSAI}"
+model_path = f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod"
 model = biorbd.Model(model_path)
 muscle_names = [model.muscleNames()[i].to_string() for i in range(int(model.nbMuscles()))]
 

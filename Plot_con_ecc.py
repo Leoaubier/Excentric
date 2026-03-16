@@ -3,6 +3,7 @@ import biorbd
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
+ESSAI = "Collecte_25_11"
 PUISSANCE = "40"
 
 
@@ -221,20 +222,20 @@ if __name__ == "__main__":
         print("PB PUISSANCE")
 
 
-    model = biorbd.Model("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod")
+    model = biorbd.Model(f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod")
     muscle_names = [model.muscleNames()[i].to_string() for i in range(int(model.nbMuscles()))]
 
     # --- Concentrique ---
-    q_con   = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, START_CON:END_CON]
-    act_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :END_CON-START_CON]
-    frc_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/muscles_forces.npy")[:, :END_CON-START_CON]
-    crank_con = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/crank_angle.npy")[START_CON:END_CON]
+    q_con   = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, START_CON:END_CON]
+    act_con = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :END_CON-START_CON]
+    frc_con = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/muscles_forces.npy")[:, :END_CON-START_CON]
+    crank_con = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/crank_angle.npy")[START_CON:END_CON]
 
     # --- Excentrique ---
-    q_ecc   = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, START_ECC:END_ECC]
-    act_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :END_ECC-START_ECC]
-    frc_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/muscles_forces.npy")[:, :END_ECC-START_ECC]
-    crank_ecc = np.load(f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/crank_angle.npy")[START_ECC:END_ECC]
+    q_ecc   = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, START_ECC:END_ECC]
+    act_ecc = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :END_ECC-START_ECC]
+    frc_ecc = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/muscles_forces.npy")[:, :END_ECC-START_ECC]
+    crank_ecc = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/crank_angle.npy")[START_ECC:END_ECC]
 
     # --- ECC ---
 

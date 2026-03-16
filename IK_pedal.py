@@ -15,6 +15,7 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
+ESSAI = "Collecte_25_11"
 MODE_PEDALAGE = "concentric"
 PUISSANCE = "80"
 
@@ -166,8 +167,8 @@ def transform_forces_to_global(model, q_recons, F_local, M_local, angle_local, F
 
     angle_resampled = np.mod(angle_resampled-np.pi, 2*np.pi) #passage angle pédalier droit à gauche
 
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_crank.npy", [Mc_resampled, Fc_resampled])
-    #np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", angle_resampled)
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_crank.npy", [Mc_resampled, Fc_resampled])
+    #np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", angle_resampled)
     # ----------------------------
     # 3) Transformation en global
     # ----------------------------
@@ -236,8 +237,8 @@ def compute_pedal_angle_from_ground(model, q_recons, unwrap=False):
 def main(show=True):
 
     model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/model_pedal.bioMod")
-    c3d_path = Path(f"/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d")
-    sensix_path = Path(f"/Users/leo/Desktop/Projet/Collecte_25_11/pedales/Results-{MODE_PEDALAGE}_{PUISSANCE}w_001.lvm")
+    c3d_path = Path(f"/Users/leo/Desktop/Projet/{ESSAI}/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d")
+    sensix_path = Path(f"/Users/leo/Desktop/Projet/{ESSAI}/pedales/Results-{MODE_PEDALAGE}_{PUISSANCE}w_001.lvm")
 
 
     #afficher_entetes_ezc3d(str(c3d_path))
@@ -312,7 +313,7 @@ def main(show=True):
 
     print("IK terminé.")
 
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/inverse_kinematic_pedal.npy", q_recons)
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/inverse_kinematic_pedal.npy", q_recons)
     print("données IK enregistrées :)")
 
 
@@ -337,7 +338,7 @@ def main(show=True):
 
     global_force, global_moment, crank_angle = transform_forces_to_global(model, q_recons, all_data[1:4,:], all_data[4:7,:], all_data[19,:],all_data[21:24,:], all_data[24:27,:])
     global_constraint = [global_moment, global_force]
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_global.npy", global_constraint)
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/constraint_global.npy", global_constraint)
 
     print("Forces et Moments enregistrés")
     print("markers frames:", n_frames)
@@ -373,8 +374,8 @@ def main(show=True):
     plt.legend()
     plt.show()
 
-    #np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", crank_angle)
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", theta)
+    #np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", crank_angle)
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/crank_angle.npy", theta)
 
 
 if __name__ == "__main__":

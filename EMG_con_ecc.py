@@ -2,6 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
+
+ESSAI = "Collecte_25_11"
+
 PUISSANCE = "40"
 
 
@@ -198,19 +201,19 @@ if __name__ == "__main__":
         print("PB PUISSANCE")
 
     emg_con = np.load(
-        f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/emg_processed_resampled.npy"
+        f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/emg_processed_resampled.npy"
     )[:, START_CON:END_CON]
 
     crank_con = np.load(
-        f"/Users/leo/Desktop/Projet/Collecte_25_11/concentric_{PUISSANCE}W/crank_angle.npy"
+        f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/crank_angle.npy"
     )[START_CON:END_CON]
 
     emg_ecc = np.load(
-        f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/emg_processed_resampled.npy"
+        f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/emg_processed_resampled.npy"
     )[:, START_ECC:END_ECC]
 
     crank_ecc = np.load(
-        f"/Users/leo/Desktop/Projet/Collecte_25_11/eccentric_{PUISSANCE}W/crank_angle.npy"
+        f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/crank_angle.npy"
     )[START_ECC:END_ECC]
 
     crank_ecc, emg_ecc = ensure_forward_rotation(crank_ecc, emg_ecc)

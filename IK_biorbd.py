@@ -13,6 +13,7 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
+ESSAI = "Collecte_25_11"
 MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
@@ -251,8 +252,8 @@ def plot_cycles_from_layout(
 
 def main(show=True):
 
-    model_path = Path("/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod")
-    c3d_path = Path(f"/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d")
+    model_path = Path(f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod")
+    c3d_path = Path(f"/Users/leo/Desktop/Projet/{ESSAI}/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d")
 
     model = biorbd.Biorbd(str(model_path))
     nq = model.nb_q
@@ -402,11 +403,11 @@ def main(show=True):
     # ===========================
     # 2) Enregistrement des données
     # ===========================
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy", q_recons)
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy", q_recons)
     qdot_recons_new = np.gradient(q_recons,1/100, axis=1)
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy", qdot_recons)
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy", qdot_recons)
     qddot_recons_new = np.gradient(qdot_recons_new, 1/100, axis=1)
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/qddot_inverse_kinematic.npy", qddot_recons)
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/qddot_inverse_kinematic.npy", qddot_recons)
     print("données IK enregistrées :)")
 
 

@@ -5,12 +5,13 @@ from matplotlib.widgets import CheckButtons
 import ezc3d
 from pyomeca import Analogs
 
+ESSAI = "Collecte_25_11"
 MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
-model_path = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
-c3d_path   = f"/Users/leo/Desktop/Projet/Collecte_25_11/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d"
-q_path     = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
+model_path = f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod"
+c3d_path   = f"/Users/leo/Desktop/Projet/{ESSAI}/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d"
+q_path     = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 
 def find_trigger(file):
     # Charger le canal analogique

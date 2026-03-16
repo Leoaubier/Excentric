@@ -9,16 +9,17 @@ import matplotlib.pyplot as plt
 # ============================================================
 PLOT = False
 
+ESSAI = "Collecte_25_11"
 MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
-MODEL_PATH = "/Users/leo/Desktop/Projet/modele_opensim/wu_bras_gauche_seth_left_Sidonie_vtp.bioMod"
-Q_PATH     = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
+MODEL_PATH = f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod"
+Q_PATH     = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 
 FIRST_FRAME = 3040
 LAST_FRAME  = 3060                     # None = jusqu'à la fin
 
-OUT_CSV = f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/moment_arms_by_dof.csv"                         # ex: "moment_arms_by_dof.csv" ou None
+OUT_CSV = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/moment_arms_by_dof.csv"                         # ex: "moment_arms_by_dof.csv" ou None
 # ============================================================
 
 
