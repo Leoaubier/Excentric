@@ -13,8 +13,8 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-ESSAI = "Collecte_25_11"
-MODE_PEDALAGE = "eccentric"
+ESSAI = "Collecte_18_03"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 
@@ -24,7 +24,7 @@ END_FRAME   = None    # Dernière frame (None = dernière frame du fichier)
 # 1. Markers du modèle, DANS L'ORDRE DU .bioMod
 MODEL_MARKERS = [
     "Ster",
-    "Xiph",
+    #"Xiph",
     "C7",
     "T10",
     "Clav_SC",
@@ -281,33 +281,68 @@ def main(show=True):
     qdot_recons = np.zeros((nq, n_frames))
     qddot_recons = np.zeros((nq, n_frames))
 
-    if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
-        if PUISSANCE == "40":
-            init = 4000
-            dephasage = 0
-        elif PUISSANCE == "60":
-            init = 3000
-            dephasage = 0
-        elif PUISSANCE == "80":
-            init = 3000
-            dephasage = 0
+    if ESSAI == "Collecte_25_11":
+        if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
+            if PUISSANCE == "40":
+                init = 4000
+                dephasage = 0
+            elif PUISSANCE == "60":
+                init = 3000
+                dephasage = 0
+            elif PUISSANCE == "80":
+                init = 3000
+                dephasage = 0
+            else:
+                print("PB PUISSANCE")
+        elif MODE_PEDALAGE == "eccentric":
+            if PUISSANCE == "40":
+                init = 1000
+                dephasage = 0
+            elif PUISSANCE == "60":
+                init = 3000
+                dephasage = 0
+            elif PUISSANCE == "80":
+                init = 8000
+                dephasage = 0
+            else:
+                print("PB PUISSANCE")
         else:
-            print("PB PUISSANCE")
-    elif MODE_PEDALAGE == "eccentric":
-        if PUISSANCE == "40":
-            init = 1000
-            dephasage = 0
-        elif PUISSANCE == "60":
-            init = 3000
-            dephasage = 0
-        elif PUISSANCE == "80":
-            init = 8000
-            dephasage = 0
+            print("PB MODE PEDALAGE")
+        print("Filtre de Kalman initialisé à la frame", init)
+
+    elif ESSAI == "Collecte_13_03":
+        init = 2400
+        dephasage = 0
+
+    elif ESSAI == "Collecte_18_03":
+        if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
+            if PUISSANCE == "40":
+                init = 2000
+                dephasage = 0
+            elif PUISSANCE == "60":
+                init = 3000
+                dephasage = 0
+            elif PUISSANCE == "80":
+                init = 3000
+                dephasage = 0
+            else:
+                print("PB PUISSANCE")
+        elif MODE_PEDALAGE == "eccentric":
+            if PUISSANCE == "40":
+                init = 5000
+                dephasage = 0
+            elif PUISSANCE == "60":
+                init = 3000
+                dephasage = 0
+            elif PUISSANCE == "80":
+                init = 8000
+                dephasage = 0
+            else:
+                print("PB PUISSANCE")
         else:
-            print("PB PUISSANCE")
-    else:
-        print("PB MODE PEDALAGE")
-    print("Filtre de Kalman initialisé à la frame", init)
+            print("PB MODE PEDALAGE")
+        print("Filtre de Kalman initialisé à la frame", init)
+
     kalman = biorbd.ExtendedKalmanFilterMarkers(model, frequency=100)
     q_i, _, _ = kalman.reconstruct_frame(markers[init])
     for i, (q_i, qdot_i, qddot_i) in enumerate(kalman.reconstruct_frames(markers)):
@@ -430,7 +465,7 @@ def main(show=True):
     # 4) Extraction & normalisation des cycles
 
     FIRST_FRAME_PLOT = 2000
-    END_FRAME_PLOT = 5200
+    END_FRAME_PLOT = 5000
 
     dof_name = list(model.dof_names)
 

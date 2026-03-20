@@ -294,7 +294,7 @@ def run_spm_all_muscles(act_con, act_ecc, muscle_names, alpha=0.05):
             start = int(cluster.endpoints[0])
             end   = int(cluster.endpoints[1])
 
-            if end <= start:
+            if (end - start) < 5:  # ou 3-10 selon ton sampling
                 continue
 
             con_zone = act_con[m][:, start:end]
@@ -445,22 +445,37 @@ def compute_stability_ratio(results_spm):
 
     return stab_score / (gen_score + 1e-8)
 
+def format_group_label(label, max_len=12):
+    words = label.split()
+    lines = []
+    current_line = ""
+
+    for w in words:
+        if len(current_line) + len(w) + 1 <= max_len:
+            current_line += (" " + w if current_line else w)
+        else:
+            lines.append(current_line)
+            current_line = w
+
+    if current_line:
+        lines.append(current_line)
+
+    return "\n".join(lines)
 
 def plot_spm_heatmap(
-        t_values,
+        results_spm,
         muscle_names,
         muscle_groups,
         n_points=200):
 
-    pedal_angle = np.linspace(0, 360, n_points)
-
     # ==============================
-    # Ordre musculaire par groupes
+    # 1. Construire ordre + groupes FIXES
     # ==============================
 
     ordered_muscles = []
-    group_boundaries = []
-    group_labels = []
+    group_info = []  # (start, end, group_name)
+
+    current_idx = 0
 
     for group, muscles in muscle_groups.items():
 
@@ -472,63 +487,132 @@ def plot_spm_heatmap(
 
         ordered_muscles.extend(idx)
 
-        group_boundaries.append(len(ordered_muscles))
-        group_labels.append(group)
+        start = current_idx
+        end = current_idx + len(idx)
 
-    t_values = t_values[ordered_muscles]
-    muscle_names = [muscle_names[i] for i in ordered_muscles]
+        group_info.append((start, end, group))
+
+        current_idx = end
+
+    # Reorder UNE seule fois
+    muscle_names_ord = [muscle_names[i] for i in ordered_muscles]
+
+    # Mapping rapide (évite index())
+    muscle_map = {old: new for new, old in enumerate(ordered_muscles)}
 
     # ==============================
-    # Figure publication
+    # 2. Matrice significativité
     # ==============================
 
-    fig, ax = plt.subplots(figsize=(14,10))
+    n_muscles = len(muscle_names_ord)
+    sig_matrix = np.zeros((n_muscles, n_points))
 
-    vmax = np.percentile(np.abs(t_values), 99)
+    for r in results_spm:
+
+        m = r["muscle_index"]
+
+        if m not in muscle_map:
+            continue
+
+        new_idx = muscle_map[m]
+
+        start = r["start_idx"]
+        end = r["end_idx"]
+
+        if end <= start:
+            continue
+
+        if r["direction"] == "ECC > CON":
+            sig_matrix[new_idx, start:end] = 1
+        else:
+            sig_matrix[new_idx, start:end] = -1
+
+    # ==============================
+    # 3. Plot
+    # ==============================
+
+    from matplotlib.gridspec import GridSpec
+
+    fig = plt.figure(figsize=(14, 10))
+    gs = GridSpec(1, 2, width_ratios=[1, 5], wspace=0.05)
+
+    ax_group = fig.add_subplot(gs[0, 0])  # colonne groupes
+    ax = fig.add_subplot(gs[0, 1])  # heatmap
 
     im = ax.imshow(
-        t_values,
-        cmap="RdBu_r",
+        sig_matrix,
+        cmap="bwr",
         aspect="auto",
-        vmin=-vmax,
-        vmax=vmax,
-        extent=[0,360,0,len(muscle_names)]
+        vmin=-1,
+        vmax=1,
+        extent=[0, 360, 0, n_muscles],
+        interpolation="nearest"
     )
-
     # ==============================
-    # Labels muscles
+    # 4. Labels axes
     # ==============================
 
-    ax.set_yticks(np.arange(len(muscle_names)))
-    ax.set_yticklabels(muscle_names, fontsize=9)
+    ax.set_yticks(np.arange(n_muscles) + 0.5)
+    ax.set_yticklabels(muscle_names_ord, fontsize=9)
 
     ax.set_xlabel("Pedal angle (°)", fontsize=12)
-    ax.set_ylabel("Muscles", fontsize=12)
+    ax.set_xticks(np.arange(0, 361, 60))
 
-    ax.set_xticks(np.arange(0,361,60))
+    ax.set_title("SPM significant clusters (ECC vs CON)", fontsize=14, weight="bold")
 
-    ax.set_title(
-        "SPM t-values (ECC vs CON)",
-        fontsize=14,
-        weight="bold"
+    ax_group.set_ylim(0, n_muscles)
+    ax_group.set_xlim(0, 1)
+
+    for start, end, group in group_info:
+        y_center = (start + end) / 2
+
+        ax_group.text(
+            -0.2,
+            y_center,
+            format_group_label(group),
+            rotation=0,
+            va='center',
+            ha='center',
+            fontsize=10,
+            fontweight='bold'
+        )
+
+        # séparation visuelle
+        ax_group.hlines(end, 0, 1, colors='black', linewidth=1)
+        ax.hlines(end, 0, 360, colors='black', linewidth=1)
+
+    # enlever axes inutiles
+    ax_group.axis('off')
+
+    # ==============================
+    # 5. Lignes groupes
+    # ==============================
+
+    for start, end, _ in group_info:
+        ax.axhline(end, color="black", linewidth=1)
+
+
+    # ==============================
+    # 7. Légende simple
+    # ==============================
+
+    from matplotlib.patches import Patch
+
+    legend_elements = [
+        Patch(facecolor='red', label='ECC > CON'),
+        Patch(facecolor='blue', label='CON > ECC'),
+        Patch(facecolor='white', edgecolor='black', label='Non-significant')
+    ]
+
+    fig.legend(
+        handles=legend_elements,
+        loc='center right',
+        bbox_to_anchor=(0.95, 0.95),
+        frameon=False
     )
 
     # ==============================
-    # Séparation groupes musculaires
-    # ==============================
-
-    for b in group_boundaries:
-        ax.axhline(b, color="black", linewidth=1)
-
-    # ==============================
-    # Colorbar
-    # ==============================
-
-    cbar = plt.colorbar(im)
-    cbar.set_label("t-value", fontsize=11)
-
-    # ==============================
-    # Style publication
+    # 8. Style publication
     # ==============================
 
     ax.spines["top"].set_visible(False)
@@ -618,7 +702,7 @@ for power in PUISSANCES:
         print(r)
 
     plot_spm_heatmap(
-        t_matrix,
+        results_spm,
         muscle_names,
         MUSCLE_GROUPS,
         n_points=N_POINTS,

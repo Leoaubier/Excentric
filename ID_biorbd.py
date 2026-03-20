@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 from biorbd import ExternalForceSet
 from scipy.signal import find_peaks, butter, filtfilt
 
-ESSAI = "Collecte_25_11"
+ESSAI = "Collecte_18_03"
 MODE_PEDALAGE = "concentric"
-PUISSANCE = "40"
+PUISSANCE = "60"
 
 #
 # This examples shows how to
@@ -302,31 +302,38 @@ def main():
     plt.show()
 
     # ----------- Paramètres utilisateur -----------
-    if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
-        if PUISSANCE == "40":
-            START = 2000  # frame de début (ex : 2000)
-            END = 5200  # frame de fin
-        elif PUISSANCE == "60":
-            START = 2000  # frame de début (ex : 2000)
-            END = 5000  # frame de fin
-        elif PUISSANCE == "80":
-            START = 1500  # frame de début (ex : 2000)
-            END = 4000  # frame de fin
-        else:
-            print("PB PUISSANCE")
-    elif MODE_PEDALAGE == "eccentric":
-        if PUISSANCE == "40":
-            START = 2000  # frame de début (ex : 2000)
-            END = 5000  # frame de fin
-        elif PUISSANCE == "60":
-            START = 1500  # frame de début (ex : 2000)
-            END = 3500  # frame de fin
-        elif PUISSANCE == "80":
-            START = 7000  # frame de début (ex : 2000)
-            END = 10000  # frame de fin
-        else:
-            print("PB PUISSANCE")
+    if ESSAI == "Collecte_25_11":
+        if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
+            if PUISSANCE == "40":
+                START = 2000  # frame de début (ex : 2000)
+                END = 5200  # frame de fin
+            elif PUISSANCE == "60":
+                START = 2000  # frame de début (ex : 2000)
+                END = 5000  # frame de fin
+            elif PUISSANCE == "80":
+                START = 1500  # frame de début (ex : 2000)
+                END = 4000  # frame de fin
+            else:
+                print("PB PUISSANCE")
+        elif MODE_PEDALAGE == "eccentric":
+            if PUISSANCE == "40":
+                START = 2000  # frame de début (ex : 2000)
+                END = 5000  # frame de fin
+            elif PUISSANCE == "60":
+                START = 1500  # frame de début (ex : 2000)
+                END = 3500  # frame de fin
+            elif PUISSANCE == "80":
+                START = 7000  # frame de début (ex : 2000)
+                END = 10000  # frame de fin
+            else:
+                print("PB PUISSANCE")
+    elif ESSAI == "Collecte_13_03":
+        START = 2300  # frame de début (ex : 2000)
+        END = 3400  # frame de fin
 
+    elif ESSAI == "Collecte_18_03":
+        START = 2300  # frame de début (ex : 2000)
+        END = 3400  # frame de fin
 
     # ----------- Sélection plage temporelle --------
     tau_sel = tau[:, START:END]

@@ -5,8 +5,8 @@ from matplotlib.widgets import CheckButtons
 import ezc3d
 from pyomeca import Analogs
 
-ESSAI = "Collecte_25_11"
-MODE_PEDALAGE = "eccentric"
+ESSAI = "Collecte_18_03"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 model_path = f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod"
@@ -98,7 +98,7 @@ for f in range(n_frames):
     marker_error[f, :] = errors_f
 
 # mm conversion
-marker_error_mm = marker_error * 1000
+marker_error_mm = marker_error[1500:,:] * 1000
 
 plt.figure(figsize=(16, 8))
 
@@ -111,10 +111,10 @@ for k, (i_model, i_c3d) in enumerate(mapping):
 #plt.plot(np.mean(marker_error_mm, axis=1), 'k--', linewidth=3, label="Erreur moyenne")
 
 
-plt.title("Erreur de reconstruction IK par marker", fontsize=13)
+plt.title("Erreur de reconstruction IK par marker", fontsize=15)
 plt.xlabel("Frame")
 plt.ylabel("Erreur (mm)")
-plt.legend(fontsize=10)
+plt.legend(fontsize=13)
 plt.grid(True)
 plt.tight_layout()
 plt.show()
@@ -140,9 +140,9 @@ fig, ax = plt.subplots(figsize=(14, 6))
 
 bars = ax.bar(marker_labels, mean_error, yerr=std_error, capsize=5, color=colors)
 
-ax.set_xticklabels(marker_labels, rotation=45, ha='right')
-ax.set_ylabel("Erreur (mm)")
-ax.set_title("Erreur moyenne IK par marker (rouge = grande erreur)")
+ax.set_xticklabels(marker_labels, rotation=45, ha='right', fontsize=13)
+ax.set_ylabel("Erreur (mm)", fontsize=13)
+ax.set_title("Erreur moyenne IK par marker (rouge = grande erreur)", fontsize=15)
 ax.grid(axis='y', linestyle='--', alpha=0.5)
 
 # Créer un mappable lié à cet axe
@@ -151,7 +151,7 @@ sm.set_array([])
 
 # Ajouter la colorbar SANS erreur
 cbar = fig.colorbar(sm, ax=ax)
-cbar.set_label("Erreur (mm)")
+cbar.set_label("Erreur (mm)", fontsize=13)
 
 plt.tight_layout()
 plt.show()

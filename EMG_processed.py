@@ -11,9 +11,9 @@ import numpy as np
 
 from pyomeca import Analogs
 
-ESSAI = "Collecte_25_11"
-MODE_PEDALAGE = "eccentric"
-PUISSANCE = "40"
+ESSAI = "Collecte_18_03"
+MODE_PEDALAGE = "concentric"
+PUISSANCE = "60"
 
 
 def resample_emg_to_100hz(emg, target_fs=100):
@@ -79,7 +79,9 @@ mvc_blocks = []
 fs_analog = None
 units = None
 
+
 for muscle_name, emg_label in mvc_mapping.items():
+
     mvc_file = Path(file_dir) / f"mvc_{muscle_name}.c3d"
 
     if not mvc_file.exists():
@@ -129,12 +131,19 @@ mvc_files = sorted(Path(file_dir).glob("*.c3d"))
 markers_raw = Markers.from_c3d(file, usecols=['Clav_SC'])
 
 fs_analog = emg_raw.rate
-trigger_index = np.where(trigger > 4)[0][0]
+
+if ESSAI == "Collecte_18_03":
+    trigger_index = 0
+
+else :
+    trigger_index = np.where(trigger > 4)[0][0]
+
 print("Trigger détecté à l’échantillon :", trigger_index)
 
 # fréquence analogique
 trigger_time = trigger_index / fs_analog
-trigger_frame = int(trigger_time*markers_raw.rate)
+
+trigger_frame = int(trigger_time * markers_raw.rate)
 
 print("markers rate", trigger_frame)
 
@@ -184,16 +193,16 @@ np.save(
 
 plt.show()
 
-plt.plot(emg_resampled.values[7][2000:3000])
+plt.plot(emg_resampled.values[6][2000:3000])
 plt.title("EMG brut")
 plt.xlabel("Frame")
-plt.ylabel("mV")
+plt.ylabel("EMG (mV)")
 plt.show()
 
-plt.plot(emg_processed_resampled.values[7][2000:3000])
+plt.plot(emg_processed_resampled.values[6][2000:3000])
 plt.title("EMG traité")
 plt.xlabel("Frame")
-plt.ylabel("Activation")
+plt.ylabel("Activation (% EMG Max)")
 plt.show()
 
 

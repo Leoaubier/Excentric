@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 import warnings
 
-ESSAI = "Collecte_25_11"
-MODE_PEDALAGE = "eccentric"
+ESSAI = "Collecte_18_03"
+MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
 MODEL_PATH = f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod"
@@ -20,27 +20,47 @@ EMG_PATH  = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/emg
 
 EPS_ACT = 1e-10
 
-if MODE_PEDALAGE == "concentric":
-    W_TAU = 2.6e10
-    W_RES = 1.3e7
-    W_EMG = 2.5e9
-    W_ACT = 2.5e8
-    SAT = 0
-    RES_BND_know = 1.5
-    RES_BND_unknow = 2.5
-    if PUISSANCE == "40":
-        FIRST = 2000  # frame de début (ex : 2000 / 5200) OK
-        END = 5200  # frame de fin
-    elif PUISSANCE == "60":
-        FIRST = 2000  # frame de début (ex : 2000)
-        END = 5000  # frame de fin
-    elif PUISSANCE == "80":
-        FIRST = 1500  # frame de début (ex : 2000)
-        END = 4000  # frame de fin
-    else:
-        print("PB PUISSANCE")
+if ESSAI == "Collecte_25_11":
+    if MODE_PEDALAGE == "concentric":
+        W_TAU = 2.6e10
+        W_RES = 1.3e7
+        W_EMG = 2.5e9
+        W_ACT = 2.5e8
+        SAT = 0
+        RES_BND_know = 1.5
+        RES_BND_unknow = 2.5
+        if PUISSANCE == "40":
+            FIRST = 2000  # frame de début (ex : 2000 / 5200) OK
+            END = 5200  # frame de fin
+        elif PUISSANCE == "60":
+            FIRST = 2000  # frame de début (ex : 2000)
+            END = 5000  # frame de fin
+        elif PUISSANCE == "80":
+            FIRST = 1500  # frame de début (ex : 2000)
+            END = 4000  # frame de fin
+        else:
+            print("PB PUISSANCE")
 
-elif MODE_PEDALAGE == "eccentric":
+    elif MODE_PEDALAGE == "eccentric":
+        W_TAU = 2.6e10
+        W_RES = 1.3e7
+        W_EMG = 2.5e9
+        W_ACT = 2.5e8
+        SAT = 0
+        RES_BND_know = 2
+        RES_BND_unknow = 3.5
+        if PUISSANCE == "40":
+            FIRST = 2000  # frame de début (ex : 2000) OK
+            END = 5000  # frame de fin
+        elif PUISSANCE == "60":
+            FIRST = 1500  # frame de début (ex : 2000)
+            END = 3500  # frame de fin
+        elif PUISSANCE == "80":
+            FIRST = 7000  # frame de début (ex : 2000)
+            END = 10000  # frame de fin
+        else:
+            print("PB PUISSANCE")
+elif ESSAI == "Collecte_18_03":
     W_TAU = 2.6e10
     W_RES = 1.3e7
     W_EMG = 2.5e9
@@ -48,17 +68,9 @@ elif MODE_PEDALAGE == "eccentric":
     SAT = 0
     RES_BND_know = 2
     RES_BND_unknow = 3.5
-    if PUISSANCE == "40":
-        FIRST = 2000  # frame de début (ex : 2000) OK
-        END = 5000  # frame de fin
-    elif PUISSANCE == "60":
-        FIRST = 1500  # frame de début (ex : 2000)
-        END = 3500  # frame de fin
-    elif PUISSANCE == "80":
-        FIRST = 7000  # frame de début (ex : 2000)
-        END = 10000  # frame de fin
-    else:
-        print("PB PUISSANCE")
+    FIRST = 2000  # frame de début (ex : 2000) OK
+    END = 2300  # frame de fin
+
 
 else:
     print("PROBLEME MODE DE PEDALAGE")
@@ -276,8 +288,8 @@ def main():
             print(f"Frame {k+1}/{n_frames}")
 
     print("Done in", time.time() - t0, "s")
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/muscle_activations_nonlinear.npy", mus_act)
-    np.save(f"/Users/leo/Desktop/Projet/Collecte_25_11/{MODE_PEDALAGE}_{PUISSANCE}W/muscles_forces.npy", mus_force)
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/muscle_activations_nonlinear.npy", mus_act)
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/muscles_forces.npy", mus_force)
 
     err_mean = np.mean(np.abs(tau_err), axis=1)
     err_std = np.std(np.abs(tau_err), axis=1)

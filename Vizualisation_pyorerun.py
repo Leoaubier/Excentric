@@ -3,7 +3,7 @@ import numpy as np
 import biorbd
 from math import pi
 
-ESSAI = "Collecte_25_11"
+ESSAI = "Collecte_18_03"
 MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 

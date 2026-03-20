@@ -15,9 +15,12 @@ try:
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
-ESSAI = "Collecte_25_11"
+
+#Collecte_25_11
+
+ESSAI = "Collecte_18_03"
 MODE_PEDALAGE = "concentric"
-PUISSANCE = "80"
+PUISSANCE = "60"
 
 
 # === Choix des frames à analyser ===
@@ -229,6 +232,9 @@ def compute_pedal_angle_from_ground(model, q_recons, unwrap=False):
     if unwrap:
         theta = np.unwrap(theta)
 
+    if ESSAI == "Collecte_18_03" :
+        theta = (2*np.pi)-theta
+
 
     return theta
 
@@ -272,34 +278,42 @@ def main(show=True):
 
     kalman = biorbd.ExtendedKalmanFilterMarkers(model, frequency=100)
 
-    if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
-        if PUISSANCE == "40":
-            init = 4000
-            dephasage = 0 #frame retard velo
-        elif PUISSANCE == "60":
-            init = 3000
-            dephasage = 0
-        elif PUISSANCE == "80":
-            init = 3000
-            dephasage = 0
+    if ESSAI == "Collecte_25_11":
+        if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
+            if PUISSANCE == "40":
+                init = 4000
+                dephasage = 0 #frame retard velo
+            elif PUISSANCE == "60":
+                init = 3000
+                dephasage = 0
+            elif PUISSANCE == "80":
+                init = 3000
+                dephasage = 0
+            else:
+                print("PB PUISSANCE")
+        elif MODE_PEDALAGE == "eccentric":
+            if PUISSANCE == "40":
+                init = 2000
+                dephasage = 0
+            elif PUISSANCE == "60":
+                init = 3000
+                dephasage = 0
+            elif PUISSANCE == "80":
+                init = 8000
+                dephasage = 0
+            else:
+                print("PB PUISSANCE")
         else:
-            print("PB PUISSANCE")
-    elif MODE_PEDALAGE == "eccentric":
-        if PUISSANCE == "40":
-            init = 2000
-            dephasage = 0
-        elif PUISSANCE == "60":
-            init = 3000
-            dephasage = 0
-        elif PUISSANCE == "80":
-            init = 8000
-            dephasage = 0
-        else:
-            print("PB PUISSANCE")
-    else:
-        print("PB MODE PEDALAGE")
-    print("Filtre de Kalman initialisé à la frame", init)
+            print("PB MODE PEDALAGE")
+        print("Filtre de Kalman initialisé à la frame", init)
 
+    elif ESSAI == "Collecte_13_03":
+        init = 1000
+        dephasage = 0
+
+    elif ESSAI == "Collecte_18_03":
+        init = 1000
+        dephasage = 0
     q_i, _, _ = kalman.reconstruct_frame(markers[init])
     for i, (q_i, _, _) in enumerate(kalman.reconstruct_frames(markers)):
         q_recons[:, i] = q_i
@@ -363,10 +377,10 @@ def main(show=True):
         b.exec()
 
     theta = compute_pedal_angle_from_ground(model, q_recons)
-    diff = crank_angle[100]-theta[100] #3,28 rad
+    diff = crank_angle[3956]-theta[3956] #3,28 rad
     print(diff)
     theta = (theta + diff) % (2*np.pi)
-    plt.plot(theta, label = "angle recalculé")
+    plt.plot(theta, label = "angle  recalculé")
     plt.plot(crank_angle, label = "angle vélo")
     plt.title("angle pédale / pédalier")
     plt.xlabel("Frame")

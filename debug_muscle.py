@@ -10,7 +10,7 @@ Firstdoftoplot = 6
 # ============================================================
 PLOT = False
 
-ESSAI = "Collecte_25_11"
+ESSAI = "Collecte_18_03"
 MODE_PEDALAGE = "concentric"
 PUISSANCE = "40"
 
@@ -20,8 +20,8 @@ QDOT_PATH     = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W
 TAU_PATH  = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
 
 
-FIRST_FRAME = 3500
-LAST_FRAME  = 3600                    # None = jusqu'à la fin
+FIRST_FRAME = 2400
+LAST_FRAME  = 2600                    # None = jusqu'à la fin
 
 # DoF filter: laisser None pour tout, ou mettre un mot-clé (ex: "Elbow")
 DOF_CONTAINS = None  # ex: "Elbow" / "elbow" / "Shoulder" / etc.

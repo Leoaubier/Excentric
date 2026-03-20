@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
 
-ESSAI = "Collecte_25_11"
+ESSAI = "Collecte_18_03"
 
-PUISSANCE = "40"
+PUISSANCE = "60"
 
 
 # ============================================================
