@@ -4,8 +4,8 @@ import biorbd
 from math import pi
 
 ESSAI = "Collecte_18_03"
-MODE_PEDALAGE = "concentric"
-PUISSANCE = "40"
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "left"
 
 model_path = f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod"
 model_pedal_path = f'/Users/leo/Desktop/Projet/modele_opensim/model_pedal.bioMod'

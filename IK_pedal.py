@@ -11,7 +11,7 @@ from pyomeca import Analogs
 try:
     import bioviz
 
-    biorbd_viz_found = True
+    biorbd_viz_found = False
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
@@ -19,8 +19,8 @@ except ModuleNotFoundError:
 #Collecte_25_11
 
 ESSAI = "Collecte_18_03"
-MODE_PEDALAGE = "concentric"
-PUISSANCE = "60"
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "left"
 
 
 # === Choix des frames à analyser ===
@@ -377,7 +377,7 @@ def main(show=True):
         b.exec()
 
     theta = compute_pedal_angle_from_ground(model, q_recons)
-    diff = crank_angle[3956]-theta[3956] #3,28 rad
+    diff = crank_angle[100]-theta[100] #3,28 rad
     print(diff)
     theta = (theta + diff) % (2*np.pi)
     plt.plot(theta, label = "angle  recalculé")

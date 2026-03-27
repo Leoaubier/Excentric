@@ -7,7 +7,7 @@ from pyomeca import Analogs
 
 ESSAI = "Collecte_18_03"
 MODE_PEDALAGE = "concentric"
-PUISSANCE = "40"
+PUISSANCE = "60"
 
 model_path = f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod"
 c3d_path   = f"/Users/leo/Desktop/Projet/{ESSAI}/C3D_labelled/{MODE_PEDALAGE}_{PUISSANCE}W.c3d"

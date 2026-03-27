@@ -7,7 +7,7 @@ from scipy.signal import find_peaks, butter, filtfilt
 
 ESSAI = "Collecte_18_03"
 MODE_PEDALAGE = "concentric"
-PUISSANCE = "60"
+PUISSANCE = "left"
 
 #
 # This examples shows how to
@@ -40,15 +40,17 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
 
 
     q_recons = np.load(q_path)
-    qdot_recons = np.load(qdot_path)
-
+    #qdot_recons = np.load(qdot_path)
+    #qddot_recons = np.load(qddot_path)
+    qdot_recons = np.gradient(q_recons, axis=1)
 
     fs = 100
     cutoff = 6
     dt = 1 / fs
     b, a = butter(4, cutoff / (fs / 2), btype='low')
     qdot_filt = filtfilt(b, a, qdot_recons, axis=1)
-    qddot_recons = np.load(qddot_path)
+
+    qddot_recons = np.gradient(qdot_filt, axis=1)
     qddot_filt = filtfilt(b, a, qddot_recons, axis=1)
     tau = np.zeros((nq, int(q_recons.shape[1])))
 
@@ -114,6 +116,7 @@ def inverse_dynamic(model_path, q_path, qdot_path, qddot_path):
         #
         tau[:,i] = model.inverse_dynamics(q, qdot, qddot)
         #print(f"Inverse dynamics tau: {tau}")
+
 
         dof_name = model.dof_names
 
@@ -332,8 +335,8 @@ def main():
         END = 3400  # frame de fin
 
     elif ESSAI == "Collecte_18_03":
-        START = 2300  # frame de début (ex : 2000)
-        END = 3400  # frame de fin
+        START = 1000  # frame de début (ex : 2000)
+        END = 4000  # frame de fin
 
     # ----------- Sélection plage temporelle --------
     tau_sel = tau[:, START:END]

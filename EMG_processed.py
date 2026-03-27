@@ -12,8 +12,8 @@ import numpy as np
 from pyomeca import Analogs
 
 ESSAI = "Collecte_18_03"
-MODE_PEDALAGE = "concentric"
-PUISSANCE = "60"
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "left"
 
 
 def resample_emg_to_100hz(emg, target_fs=100):
@@ -95,7 +95,8 @@ for muscle_name, emg_label in mvc_mapping.items():
         mvc_file,
         usecols=[emg_label]
     )
-
+    #plt.plot(mvc_trial.values[0, :])
+    #plt.show()
     if fs_analog is None:
         fs_analog = mvc_trial.rate
         units = mvc_trial.units
@@ -160,6 +161,11 @@ emg_processed = (
 
 emg_processed_resampled = resample_emg_to_100hz(emg_processed)/100 #entre 0 et 1
 emg_resampled = resample_emg_to_100hz(emg)
+
+if ESSAI == "Collecte_1_03": #####
+    mtlemg = np.array([1,1,1/15,1,2,2,2,2,2,1,2])
+    mtlemg = mtlemg.reshape(11, 1)
+    emg_processed_resampled = emg_processed_resampled*mtlemg
 
 n_channels = emg_processed_resampled.shape[0]
 n_cols = 3

@@ -7,23 +7,37 @@ from statsmodels.stats.anova import AnovaRM
 from scipy.cluster.hierarchy import linkage, leaves_list
 from matplotlib.gridspec import GridSpec
 
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+pd.set_option('display.width', 200)
+pd.set_option('display.max_colwidth', None)
 
 # ==============================
 # Réglages généraux
 # ==============================
 N_POINTS = 200  # points par cycle pour normalisation
-ESSAI = "Collecte_25_11"
-PUISSANCES = [40]
+ESSAI = "Collecte_18_03"
+PUISSANCES = [40,60]
 MODES = ["concentric", "eccentric"]
 
-FRAME_RANGES = {
-    "concentric_40": (2000, 5200),
-    "eccentric_40": (2000, 5000),
-    "concentric_60": (2000, 5000),
-    "eccentric_60": (1500, 3500),
-    "concentric_80": (1500, 4000),
-    "eccentric_80": (7000, 10000)
-}
+if ESSAI == "Collecte_25_11":
+    FRAME_RANGES = {
+        "concentric_40": (2000, 5200),
+        "eccentric_40": (2000, 5000),
+        "concentric_60": (2000, 5000),
+        "eccentric_60": (1500, 3500),
+        "concentric_80": (1500, 4000),
+        "eccentric_80": (7000, 10000)
+    }
+elif ESSAI == "Collecte_18_03":
+    FRAME_RANGES = {
+        "concentric_40": (2000, 5000),
+        "eccentric_40": (5000, 8000),
+        "concentric_60": (2000, 5000),
+        "eccentric_60": (14000, 17000),
+        "concentric_left": (500, 2500),
+        "eccentric_left": (4000, 7000)
+    }
 
 MUSCLE_GROUPS = {
     # Elbow
@@ -71,9 +85,7 @@ ANTAGONIST_GROUPS = {
 
 }
 
-# ==============================
-# Fonctions utilitaires
-# ==============================
+
 def ensure_forward_rotation(crank_angle, *signals):
     crank_angle = np.asarray(crank_angle, float)
     if np.median(np.diff(crank_angle)) < 0:
@@ -142,42 +154,171 @@ def remove_defective_cycle_full(data_dict, cycle_idx):
 # ==============================
 # Métriques et analyses
 # ==============================
+def safe_delta(mean_con, mean_ecc, eps=1e-4):
+    if mean_con < eps and mean_ecc < eps:
+        return 0.0
+    return 100 * (mean_ecc - mean_con) / max(mean_con, eps)
+
 def compute_muscle_metrics(act_cycles, angle_grid):
     n_muscles = act_cycles.shape[0]
     metrics = {}
+
+    angle_deg = np.rad2deg(angle_grid) % 360
+
     for m in range(n_muscles):
-        data = act_cycles[m]
+        data = act_cycles[m]  # (n_cycles, n_points)
         mean_curve = np.mean(data, axis=0)
+
+        # ===== AUC =====
+        auc = np.trapz(mean_curve, angle_deg)
+
+        # ===== Peak =====
+        peak_idx = np.argmax(mean_curve)
+        peak_val = mean_curve[peak_idx]
+        peak_phase = angle_deg[peak_idx]
+
+        # ===== Centre of Activity (CoA) =====
+        if np.sum(mean_curve) > 1e-6:
+            coa = np.sum(angle_deg * mean_curve) / np.sum(mean_curve)
+        else:
+            coa = np.nan
+
         metrics[m] = {
             "mean_activation": np.mean(data),
-            "max_activation": np.max(data),
-            "auc": np.trapezoid(mean_curve, angle_grid),
-            "peak_phase_deg": np.rad2deg(angle_grid[np.argmax(mean_curve)]),
+            "max_activation": peak_val,
+            "auc": auc,
+            "peak_phase_deg": peak_phase,
+            "CoA": coa,
             "std_activation": np.std(data)
         }
+
     return metrics
 
 def build_metrics_comparison_table(metrics_con, metrics_ecc, muscle_names):
     rows = []
+
     for m in metrics_con.keys():
+
+        con = metrics_con[m]
+        ecc = metrics_ecc[m]
+
         row = {
             "Muscle": muscle_names[m],
-            "Mean CON": round(metrics_con[m]["mean_activation"], 3),
-            "Mean ECC": round(metrics_ecc[m]["mean_activation"], 3),
-            "Max CON": round(metrics_con[m]["max_activation"], 3),
-            "Max ECC": round(metrics_ecc[m]["max_activation"], 3),
-            "AUC CON": round(metrics_con[m]["auc"], 3),
-            "AUC ECC": round(metrics_ecc[m]["auc"], 3),
-            "Peak phase CON (deg)": round(metrics_con[m]["peak_phase_deg"], 1),
-            "Peak phase ECC (deg)": round(metrics_ecc[m]["peak_phase_deg"], 1),
+
+            "Mean CON": con["mean_activation"],
+            "Mean ECC": ecc["mean_activation"],
+
+            "Peak CON": con["max_activation"],
+            "Peak ECC": ecc["max_activation"],
+
+            "AUC CON": con["auc"],
+            "AUC ECC": ecc["auc"],
+
+            "Peak phase CON": con["peak_phase_deg"],
+            "Peak phase ECC": ecc["peak_phase_deg"],
+
+            "CoA CON": con["CoA"],
+            "CoA ECC": ecc["CoA"],
         }
-        row["Δ Mean (%)"] = round(
-            100 * (row["Mean ECC"] - row["Mean CON"]) / (row["Mean CON"] + 1e-8), 1
-        )
+
+        # ===== DELTAS =====
+        row["Δ Mean (%)"] = safe_delta(row["Mean CON"], row["Mean ECC"])
+        row["Δ Peak"] = row["Peak ECC"] - row["Peak CON"]
+        row["Δ AUC"] = row["AUC ECC"] - row["AUC CON"]
+        row["Δ Phase"] = row["Peak phase ECC"] - row["Peak phase CON"]
+        row["Δ CoA"] = row["CoA ECC"] - row["CoA CON"]
+
         rows.append(row)
+
     df = pd.DataFrame(rows)
-    df = df.sort_values("Δ Mean (%)", key=np.abs, ascending=False)
+
+    # tri intelligent (changement global)
+    df = df.sort_values("Δ AUC", key=np.abs, ascending=False)
+
     return df
+
+def compute_pattern_difference(act_con, act_ecc):
+    """
+    Différence globale de forme (indépendante du bruit)
+    """
+    n_muscles = act_con.shape[0]
+    pattern_diff = []
+
+    for m in range(n_muscles):
+        mean_con = np.mean(act_con[m], axis=0)
+        mean_ecc = np.mean(act_ecc[m], axis=0)
+
+        # normalisation (important)
+        if np.max(mean_con) > 0:
+            mean_con = mean_con / np.max(mean_con)
+        if np.max(mean_ecc) > 0:
+            mean_ecc = mean_ecc / np.max(mean_ecc)
+
+        diff = np.mean(np.abs(mean_con - mean_ecc))
+
+        pattern_diff.append(diff)
+
+    return np.array(pattern_diff)
+
+def compute_rmse_grouped(con, ecc, muscle_names, groups):
+    """
+    con, ecc : (n_muscles, n_cycles, n_points)
+    """
+
+    results = []
+
+    # ==============================
+    # 1️⃣ RMSE globale
+    # ==============================
+    mean_con = np.nanmean(con, axis=(0,1))
+    mean_ecc = np.nanmean(ecc, axis=(0,1))
+
+    valid = ~np.isnan(mean_con) & ~np.isnan(mean_ecc)
+
+    if np.sum(valid) > 10:
+        rmse_global = np.sqrt(np.mean((mean_con[valid] - mean_ecc[valid])**2))
+    else:
+        rmse_global = np.nan
+
+    print("\n===== RMSE Pattern =====")
+    print(f"GLOBAL RMSE = {round(rmse_global,4)}")
+
+    # ==============================
+    # 2️⃣ RMSE par groupe
+    # ==============================
+    for group_name, muscle_list in groups.items():
+
+        idx = [i for i, name in enumerate(muscle_names)
+               if any(m in name for m in muscle_list)]
+
+        if len(idx) == 0:
+            continue
+
+        mean_con_g = np.nanmean(con[idx], axis=(0,1))
+        mean_ecc_g = np.nanmean(ecc[idx], axis=(0,1))
+
+        valid = ~np.isnan(mean_con_g) & ~np.isnan(mean_ecc_g)
+
+        if np.sum(valid) < 10:
+            rmse = np.nan
+        else:
+            rmse = np.sqrt(np.mean((mean_con_g[valid] - mean_ecc_g[valid])**2))
+
+        results.append({
+            "Group": group_name,
+            "RMSE": round(rmse, 4),
+            "n_muscles": len(idx)
+        })
+
+    df = pd.DataFrame(results)
+
+    # tri du plus différent au plus similaire
+    df = df.sort_values("RMSE", ascending=False)
+
+    print("\n--- RMSE par groupe musculaire ---")
+    print(df)
+
+    return rmse_global, df
 
 def compute_group_contribution(act_cycles, muscle_names, groups):
     group_results = {}
@@ -201,18 +342,13 @@ def get_group_indices(muscle_names, muscle_list):
 def compute_group_co_contraction(act_cycles, idx_a, idx_b):
 
     # moyenne des muscles dans chaque groupe
-    emg_a = np.mean(act_cycles[idx_a], axis=0)   # cycles x angle
+    emg_a = np.mean(act_cycles[idx_a], axis=0)  # muscles
     emg_b = np.mean(act_cycles[idx_b], axis=0)
 
-    # moyenne sur les cycles
-    emg_a = np.mean(emg_a, axis=0)
-    emg_b = np.mean(emg_b, axis=0)
+    cci_cycles = 2 * np.minimum(emg_a, emg_b) / (emg_a + emg_b + 1e-8)
 
-    # CCI point par point
-    cci_curve = 2 * np.minimum(emg_a, emg_b) / (emg_a + emg_b + 1e-8)
-
-    # score global
-    cci_score = np.mean(cci_curve)
+    cci_score = np.mean(cci_cycles)
+    cci_curve = np.mean(cci_cycles, axis=0)
 
     return cci_score, cci_curve
 
@@ -247,30 +383,30 @@ def compute_all_co_contractions(
 
     return df
 
-def spm_paired(con, ecc, alpha=0.05):
+def spm_paired(con, ecc, alpha=0.05, var_threshold=1e-6):
     con_clean = con.copy()
     ecc_clean = ecc.copy()
 
+    # Variance point par point
     var_con = np.var(con_clean, axis=0)
     var_ecc = np.var(ecc_clean, axis=0)
 
-    zero_var_mask = (var_con == 0) | (var_ecc == 0)
-    epsilon = 1e-8
+    valid_mask = (var_con > var_threshold) & (var_ecc > var_threshold)
 
-    if np.any(zero_var_mask):
-        con_clean[:, zero_var_mask] += epsilon * np.random.randn(
-            con_clean.shape[0], np.sum(zero_var_mask)
-        )
-        ecc_clean[:, zero_var_mask] += epsilon * np.random.randn(
-            ecc_clean.shape[0], np.sum(zero_var_mask)
-        )
+    # Si trop peu de points valides → skip
+    if np.sum(valid_mask) < 20:
+        return None, valid_mask
 
-    t = spm1d.stats.ttest2(con_clean, ecc_clean)
+    con_valid = con_clean[:, valid_mask]
+    ecc_valid = ecc_clean[:, valid_mask]
+
+    # T-test apparié
+    t = spm1d.stats.ttest_paired(con_valid, ecc_valid)
     ti = t.inference(alpha)
 
-    return ti, zero_var_mask
+    return ti, valid_mask
 
-def run_spm_all_muscles(act_con, act_ecc, muscle_names, alpha=0.05):
+def run_spm_all_muscles(act_con, act_ecc, muscle_names, alpha=0.05, ACTIVATION_THRESHOLD = 0.05):
 
     results = []
     n_muscles = act_con.shape[0]
@@ -283,16 +419,25 @@ def run_spm_all_muscles(act_con, act_ecc, muscle_names, alpha=0.05):
 
         ti, mask = spm_paired(act_con[m], act_ecc[m], alpha)
 
+        if ti is None:
+            continue
         # stocker les t-values pour la heatmap
-        t_matrix[m, :] = ti.z
+        t_full = np.zeros(n_points)
+        t_full[:] = np.nan  # ou 0 si tu préfères
+
+        t_full[mask] = ti.z
+
+        t_matrix[m, :] = t_full
 
         if not ti.h0reject:
             continue
 
         for cluster in ti.clusters:
 
-            start = int(cluster.endpoints[0])
-            end   = int(cluster.endpoints[1])
+            valid_indices = np.where(mask)[0]
+
+            start = valid_indices[int(cluster.endpoints[0])]
+            end = valid_indices[int(cluster.endpoints[1])]
 
             if (end - start) < 5:  # ou 3-10 selon ton sampling
                 continue
@@ -306,9 +451,18 @@ def run_spm_all_muscles(act_con, act_ecc, muscle_names, alpha=0.05):
             mean_con = np.mean(con_zone)
             mean_ecc = np.mean(ecc_zone)
 
+            if max(mean_con, mean_ecc) < ACTIVATION_THRESHOLD: #filtre les zones sans activations
+                continue
+
+            if abs(mean_ecc - mean_con) < 0.02:
+                continue
+
             direction = "CON > ECC" if mean_con > mean_ecc else "ECC > CON"
 
             mean_t = np.mean(ti.z[start:end])
+
+            if np.isnan(mean_t):
+                continue
 
             start_deg = start / (n_points - 1) * 360
             end_deg   = end   / (n_points - 1) * 360
@@ -397,10 +551,97 @@ def compute_ecc_dominance(results_spm):
 
 def compute_global_reorganization(results_spm):
     total = 0
+
     for r in results_spm:
-        total += r["phase_end_deg"] - r["phase_start_deg"]
+
+        start = r["phase_start_deg"]
+        end   = r["phase_end_deg"]
+
+        if np.isnan(start) or np.isnan(end):
+            continue
+
+        length = end - start if end >= start else (360 - start + end)
+
+        #  normalisation (important)
+        length_norm = length / 360
+
+        t_val = r.get("t_mean", 0)
+
+        if np.isnan(t_val):
+            continue
+
+        #  clamp t (évite explosion)
+        t_val = np.clip(abs(t_val), 0, 5)
+
+        total += length_norm * t_val
 
     return total
+
+def compute_pattern_similarity_grouped(con, ecc, muscle_names, groups):
+    """
+    con, ecc : (n_muscles, n_cycles, n_points)
+    """
+
+    results = []
+
+    # ==============================
+    # 1️⃣ Corrélation globale
+    # ==============================
+    mean_con = np.nanmean(con, axis=(0,1))  # moyenne tous muscles + cycles
+    mean_ecc = np.nanmean(ecc, axis=(0,1))
+
+    valid = ~np.isnan(mean_con) & ~np.isnan(mean_ecc)
+
+    if np.sum(valid) > 10:
+        r_global = np.corrcoef(mean_con[valid], mean_ecc[valid])[0,1]
+    else:
+        r_global = np.nan
+
+    print("\n===== Pattern similarity =====")
+    print(f"GLOBAL r = {round(r_global,3)}")
+
+    # ==============================
+    # 2️⃣ Par groupe musculaire
+    # ==============================
+    for group_name, muscle_list in groups.items():
+
+        idx = [i for i, name in enumerate(muscle_names)
+               if any(m in name for m in muscle_list)]
+
+        if len(idx) == 0:
+            continue
+
+        # moyenne groupe
+        mean_con_g = np.nanmean(con[idx], axis=(0,1))
+        mean_ecc_g = np.nanmean(ecc[idx], axis=(0,1))
+
+        valid = ~np.isnan(mean_con_g) & ~np.isnan(mean_ecc_g)
+
+        if np.sum(valid) < 10:
+            r = np.nan
+        else:
+            r = np.corrcoef(mean_con_g[valid], mean_ecc_g[valid])[0,1]
+
+        results.append({
+            "Group": group_name,
+            "r": round(r,3),
+            "n_muscles": len(idx)
+        })
+
+    df = pd.DataFrame(results).sort_values("r")
+
+    print("\n--- Par groupe musculaire ---")
+    print(df)
+
+    return r_global, df
+
+def compute_pattern_rmse(con, ecc, idx):
+    mean_con = np.nanmean(con[idx], axis=(0,1))
+    mean_ecc = np.nanmean(ecc[idx], axis=(0,1))
+
+    valid = ~np.isnan(mean_con) & ~np.isnan(mean_ecc)
+
+    return np.sqrt(np.mean((mean_con[valid] - mean_ecc[valid])**2))
 
 def compute_regional_score(results_spm, groups):
     region_score = {}
@@ -436,12 +677,10 @@ def compute_stability_ratio(results_spm):
         duration = r["phase_end_deg"] - r["phase_start_deg"]
 
         if any(m in r["muscle_name"] for m in STABILIZERS):
-            if r["direction"] == "ECC > CON":
-                stab_score += duration
+            stab_score += duration if r["direction"] == "ECC > CON" else -duration
 
         if any(m in r["muscle_name"] for m in GENERATORS):
-            if r["direction"] == "ECC > CON":
-                gen_score += duration
+            gen_score += duration if r["direction"] == "ECC > CON" else -duration
 
     return stab_score / (gen_score + 1e-8)
 
@@ -462,10 +701,14 @@ def format_group_label(label, max_len=12):
 
     return "\n".join(lines)
 
+import numpy as np
+
+
 def plot_spm_heatmap(
         results_spm,
         muscle_names,
         muscle_groups,
+        t_matrix,
         n_points=200):
 
     # ==============================
@@ -522,10 +765,24 @@ def plot_spm_heatmap(
         if end <= start:
             continue
 
+        valid_zone = ~np.isnan(t_matrix[m, start:end])
+
+        if np.sum(valid_zone) == 0:
+            continue
+
+        indices = np.arange(start, end)[valid_zone]
+
         if r["direction"] == "ECC > CON":
-            sig_matrix[new_idx, start:end] = 1
+            sig_matrix[new_idx, indices] = 1
         else:
-            sig_matrix[new_idx, start:end] = -1
+            sig_matrix[new_idx, indices] = -1
+
+    # ==============================
+    # Masquer les colonnes invalides (aucun test SPM)
+    # ==============================
+
+    invalid_cols = np.all(np.isnan(t_matrix), axis=0)
+    sig_matrix[:, invalid_cols] = np.nan
 
     # ==============================
     # 3. Plot
@@ -538,6 +795,8 @@ def plot_spm_heatmap(
 
     ax_group = fig.add_subplot(gs[0, 0])  # colonne groupes
     ax = fig.add_subplot(gs[0, 1])  # heatmap
+
+    sig_matrix[:, np.all(np.isnan(t_matrix), axis=0)] = np.nan
 
     im = ax.imshow(
         sig_matrix,
@@ -634,10 +893,12 @@ def load_all_trials(base_path, model, muscle_names):
             act = np.load(f"{base_path}/{mode}_{power}W/muscle_activations_nonlinear.npy")[:, :end-start]
             frc = np.load(f"{base_path}/{mode}_{power}W/muscles_forces.npy")[:, :end-start]
             crank = np.load(f"{base_path}/{mode}_{power}W/crank_angle.npy")[start:end]
+            v_musc = np.load(f"{base_path}/{mode}_{power}W/vitesse_musculaire.npy")
             if mode=="eccentric":
-                crank, q, act, frc = ensure_forward_rotation(crank, q, act, frc)
+                crank, q, act, frc, v_musc = ensure_forward_rotation(crank, q, act, frc, v_musc)
             cycles = build_all_muscle_cycles(act, crank, N_POINTS)
-            data[key] = {"q": q, "act": act, "frc": frc, "crank": crank, "cycles": cycles}
+            cycles_v_musc = build_all_muscle_cycles(v_musc, crank, N_POINTS)
+            data[key] = {"q": q, "act": act, "frc": frc, "crank": crank, "cycles": cycles, "cycles_v_musc": cycles_v_musc}
     return data
 
 # ==============================
@@ -669,6 +930,17 @@ for power in PUISSANCES:
     df_metrics = build_metrics_comparison_table(metrics_con, metrics_ecc, muscle_names)
     print("Top 10 muscles par Δ Mean (%) :")
     print(df_metrics.head(10))
+
+    # =============================
+    # ANALYSE AVANCÉE
+    # =============================
+
+    pattern_diff = compute_pattern_difference(cycles_con, cycles_ecc)
+
+    df_metrics["Pattern diff"] = pattern_diff
+
+    print("\nTop muscles avec changement de pattern :")
+    print(df_metrics.sort_values("Pattern diff", ascending=False).head(10))
 
     # 2️⃣ Contribution groupes musculaires
     df_group_con = compute_group_contribution(cycles_con, muscle_names, MUSCLE_GROUPS)
@@ -705,6 +977,7 @@ for power in PUISSANCES:
         results_spm,
         muscle_names,
         MUSCLE_GROUPS,
+        t_matrix,
         n_points=N_POINTS,
     )
 
@@ -730,3 +1003,33 @@ for power in PUISSANCES:
 
     stability_ratio = compute_stability_ratio(results_spm)
     print("Ratio stabilisateurs / générateurs:", stability_ratio)
+
+    r_global, df_corr = compute_pattern_similarity_grouped(
+        cycles_con,
+        cycles_ecc,
+        muscle_names,
+        MUSCLE_GROUPS
+    )
+
+    rmse_global, df_rmse = compute_rmse_grouped(
+        cycles_con,
+        cycles_ecc,
+        muscle_names,
+        MUSCLE_GROUPS
+    )
+
+    #Corrélation et RMSE sur vitesse musculaires
+
+    r_global_v, df_corr_v = compute_pattern_similarity_grouped(
+        data[con_key]["cycles_v_musc"],
+        data[ecc_key]["cycles_v_musc"],
+        muscle_names,
+        MUSCLE_GROUPS
+    )
+
+    rmse_global_v, df_rmse_v = compute_rmse_grouped(
+        data[con_key]["cycles_v_musc"],
+        data[ecc_key]["cycles_v_musc"],
+        muscle_names,
+        MUSCLE_GROUPS
+    )

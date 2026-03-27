@@ -3,15 +3,15 @@ import biorbd
 import matplotlib.pyplot as plt
 import casadi as ca
 
-Muscletoplot = 20
-Firstdoftoplot = 6
+Muscletoplot = 23
+Firstdoftoplot = 8
 # ============================================================
 # USER INPUTS
 # ============================================================
 PLOT = False
 
 ESSAI = "Collecte_18_03"
-MODE_PEDALAGE = "concentric"
+MODE_PEDALAGE = "eccentric"
 PUISSANCE = "40"
 
 MODEL_PATH = f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod"
@@ -20,8 +20,8 @@ QDOT_PATH     = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W
 TAU_PATH  = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/tau_inverse_dynamic.npy"
 
 
-FIRST_FRAME = 2400
-LAST_FRAME  = 2600                    # None = jusqu'à la fin
+FIRST_FRAME = 2000
+LAST_FRAME  = 5000                    # None = jusqu'à la fin
 
 # DoF filter: laisser None pour tout, ou mettre un mot-clé (ex: "Elbow")
 DOF_CONTAINS = None  # ex: "Elbow" / "elbow" / "Shoulder" / etc.
@@ -262,6 +262,8 @@ def main():
     # ============================================================
 
     lm, lopt, lmtilde, names, A, v_musc = get_lm_lopt(MODEL_PATH, q, qdot)
+
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/vitesse_musculaire.npy", v_musc)
 
     plt.plot(Rtrilat[0,:]*1000, label=f"{model.muscleNames()[Muscletoplot].to_string()},{model.nameDof()[Firstdoftoplot].to_string()}")
     plt.plot(Rtrilat[1,:]*1000, label=f"{model.muscleNames()[Muscletoplot].to_string()},{model.nameDof()[Firstdoftoplot+1].to_string()}")

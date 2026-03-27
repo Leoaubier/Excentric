@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
 
 ESSAI = "Collecte_18_03"
-PUISSANCE = "60"
+PUISSANCES = ["40", "60"]
+MODE = "concentric"  # ou "eccentric"
 
 
 def ensure_forward_rotation(crank_angle, *signals):
@@ -209,14 +210,15 @@ def plot_with_mode(ax, x, y, v, color, label=None):
         label=label if start_idx == 0 else None
     )
 
-def plot_grid_mean_std_angle(
-    mean_con, std_con, mean_ecc, std_ecc,
-    muscle_names, angle_grid, y_label, suptitle,
+def plot_grid_mean_std_angle_multi(
+    means_list, stds_list,
+    labels, colors,
+    muscle_names, angle_grid,
+    y_label, suptitle,
     show_mode=False,
-    v_musc_mean_con=None,
-    v_musc_mean_ecc=None,
+    v_musc_list=None,
 ):
-    n_muscles, n_points = mean_con.shape
+    n_muscles, n_points = means_list[0].shape
     x_deg = (np.rad2deg(angle_grid) % 360)
 
     ncols = 5
@@ -224,60 +226,37 @@ def plot_grid_mean_std_angle(
     fig, axes = plt.subplots(nrows, ncols, figsize=(15, 4 * nrows), sharex=True)
     axes = np.atleast_1d(axes).flatten()
 
-
-
     for m in range(n_muscles):
         ax = axes[m]
 
-        # styles par défaut
-        style_con = "-"
-        style_ecc = "-"
+        for i, (mean, std, label, color) in enumerate(zip(means_list, stds_list, labels, colors)):
 
-        # --- CONCENTRIQUE ---
-        # --- CONCENTRIQUE ---
-        if show_mode and v_musc_mean_con is not None:
-            plot_with_mode(
-                ax,
+            if show_mode and v_musc_list is not None:
+                plot_with_mode(
+                    ax,
+                    x_deg,
+                    mean[m],
+                    v_musc_list[i][m],
+                    color=color,
+                    label=label if m == 0 else None
+                )
+            else:
+                ax.plot(
+                    x_deg,
+                    mean[m],
+                    color=color,
+                    label=label if m == 0 else None
+                )
+
+            ax.fill_between(
                 x_deg,
-                mean_con[m],
-                v_musc_mean_con[m],
-                color="royalblue",
-                label="Concentrique"
+                mean[m] - std[m],
+                mean[m] + std[m],
+                alpha=0.2,
+                color=color
             )
-        else:
-            ax.plot(x_deg, mean_con[m], color="royalblue", label="Concentrique")
 
-        ax.fill_between(
-            x_deg,
-            mean_con[m] - std_con[m],
-            mean_con[m] + std_con[m],
-            alpha=0.25
-        )
-
-        # --- EXCENTRIQUE ---
-        # --- EXCENTRIQUE ---
-        if show_mode and v_musc_mean_ecc is not None:
-            plot_with_mode(
-                ax,
-                x_deg,
-                mean_ecc[m],
-                v_musc_mean_ecc[m],
-                color="orange",
-                label="Excentrique"
-            )
-        else:
-            ax.plot(x_deg, mean_ecc[m], color="orange", label="Excentrique")
-
-        ax.fill_between(
-            x_deg,
-            mean_ecc[m] - std_ecc[m],
-            mean_ecc[m] + std_ecc[m],
-            alpha=0.25
-        )
-
-        # titre
         title = muscle_names[m] if muscle_names is not None else f"muscle_{m}"
-
         ax.set_title(title)
 
         if m // ncols == nrows - 1:
@@ -289,39 +268,37 @@ def plot_grid_mean_std_angle(
         ax.set_xlim(0, 360)
         ax.grid(True, alpha=0.3)
 
-    # Supprimer axes vides
+    # remove empty axes
     for k in range(n_muscles, len(axes)):
         fig.delaxes(axes[k])
 
-    # Légende globale
-    handles, labels = axes[0].get_legend_handles_labels()
-
+    # légende
     from matplotlib.lines import Line2D
 
-    # --- légende styles musculaires ---
+    cond_legend = [
+        Line2D([0], [0], color=c, lw=2, label=l)
+        for c, l in zip(colors, labels)
+    ]
+
     style_legend = [
         Line2D([0], [0], color="black", linestyle="--", lw=2, label="Mode concentrique"),
         Line2D([0], [0], color="black", linestyle="-", lw=2, label="Mode isométrique"),
         Line2D([0], [0], color="black", linestyle=":", lw=2, label="Mode excentrique")
     ]
 
-    # --- légende conditions (couleurs) ---
-    cond_legend = [
-        Line2D([0], [0], color="royalblue", linestyle="-", lw=2, label="Concentrique"),
-        Line2D([0], [0], color="orange", linestyle="-", lw=2, label="Excentrique"),
-    ]
-
-    fig.subplots_adjust(top=0.92, bottom=0.08, hspace=0.35, wspace=0.25)
+    handles = cond_legend + (style_legend if show_mode else [])
 
     fig.legend(
-        handles=cond_legend + style_legend,
+        handles=handles,
         loc="lower right",
         bbox_to_anchor=(0.98, 0.02),
         frameon=True,
         fontsize=11,
     )
 
-    fig.suptitle(suptitle, fontsize=14, y=0.96)
+    fig.subplots_adjust(top=0.92, bottom=0.08, hspace=0.35, wspace=0.25)
+    fig.suptitle(suptitle, fontsize=14)
+
     plt.show()
 
 
@@ -404,154 +381,48 @@ def plot_tau_grid_layout(
 # MAIN (à brancher sur tes arrays)
 # ============================================================
 if __name__ == "__main__":
+    MIN_CYCLE_FRAMES = 30
+    N_POINTS = 360
+    stats_all = {}
 
-    if ESSAI == "Collecte_25_11":
-        if PUISSANCE == "40":
-            START_CON = 2000  # frame de début (ex : 2000)
-            END_CON = 5200  # frame de fin
-            START_ECC = 2000  # frame de début (ex : 2000)
-            END_ECC = 5000  # frame de fin
-        elif PUISSANCE == "60":
-            START_CON = 2000  # frame de début (ex : 2000)
-            END_CON = 5000  # frame de fin
-            START_ECC = 1500  # frame de début (ex : 2000)
-            END_ECC = 3500  # frame de fin
-        elif PUISSANCE == "80":
-            START_CON = 1500  # frame de début (ex : 2000)
-            END_CON = 4000  # frame de fin
-            START_ECC = 7000  # frame de début (ex : 2000)
-            END_ECC = 10000  # frame de fin
-        else:
-            print("PB PUISSANCE")
+    for PUISSANCE in PUISSANCES:
 
-    if ESSAI == "Collecte_18_03":
-        if PUISSANCE == "40":
-            START_CON = 2000  # frame de début (ex : 2000)
-            END_CON = 5000  # frame de fin
-            START_ECC = 5000  # frame de début (ex : 2000)
-            END_ECC = 8000  # frame de fin
-        elif PUISSANCE == "60":
-            START_CON = 2000  # frame de début (ex : 2000)
-            END_CON = 5000  # frame de fin
-            START_ECC = 14000  # frame de début (ex : 2000)
-            END_ECC = 17000  # frame de fin
-        elif PUISSANCE == "80":
-            START_CON = 1500  # frame de début (ex : 2000)
-            END_CON = 4000  # frame de fin
-            START_ECC = 7000  # frame de début (ex : 2000)
-            END_ECC = 10000  # frame de fin
-        else:
-            print("PB PUISSANCE")
+        if ESSAI == "Collecte_18_03":
+            if PUISSANCE == "40":
+                START = 2000
+                END = 5000
+            elif PUISSANCE == "60":
+                START = 2000
+                END = 5000
+            elif PUISSANCE == "80":
+                START = 1500
+                END = 4000
+
+        BASE = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE}_{PUISSANCE}W"
+
+        q = np.load(f"{BASE}/q_inverse_kinematic.npy")[:, START:END]
+        act = np.load(f"{BASE}/muscle_activations_nonlinear.npy")[:, :END - START]
+        frc = np.load(f"{BASE}/muscles_forces.npy")[:, :END - START]
+        tau = np.load(f"{BASE}/tau_inverse_dynamic.npy")[:, START:END]
+        crank = np.load(f"{BASE}/crank_angle.npy")[START:END]
+        v_musc = np.load(f"{BASE}/vitesse_musculaire.npy")[:, :END - START]
+
+        crank, q, act, frc, tau, v_musc = ensure_forward_rotation(
+            crank, q, act, frc, tau, v_musc
+        )
+
+        stats = compute_mode_cycle_stats_crank(
+            q, act, frc, tau, v_musc, crank,
+            min_cycle_frames=MIN_CYCLE_FRAMES,
+            n_points=N_POINTS,
+        )
+
+        stats_all[PUISSANCE] = stats
 
     model = biorbd.Model(f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod")
     muscle_names = [model.muscleNames()[i].to_string() for i in range(int(model.nbMuscles()))]
     dof_name = [model.nameDof()[i].to_string() for i in range(int(model.nbDof()))]
-    # --- Concentrique ---
-    q_con   = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, START_CON:END_CON]
-    act_con = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :END_CON-START_CON]
-    frc_con = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/muscles_forces.npy")[:, :END_CON-START_CON]
-    tau_con = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/tau_inverse_dynamic.npy")[:, START_CON:END_CON]
-    crank_con = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/crank_angle.npy")[START_CON:END_CON]
-    v_musc_con = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/concentric_{PUISSANCE}W/vitesse_musculaire.npy")[:, :END_CON-START_CON]
-    # --- Excentrique ---
-    q_ecc   = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/q_inverse_kinematic.npy")[:, START_ECC:END_ECC]
-    act_ecc = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/muscle_activations_nonlinear.npy")[:, :END_ECC-START_ECC]
-    frc_ecc = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/muscles_forces.npy")[:, :END_ECC-START_ECC]
-    tau_ecc = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/tau_inverse_dynamic.npy")[:, START_ECC:END_ECC]
-    crank_ecc = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/crank_angle.npy")[START_ECC:END_ECC]
-    v_musc_ecc = np.load(f"/Users/leo/Desktop/Projet/{ESSAI}/eccentric_{PUISSANCE}W/vitesse_musculaire.npy")[:, :END_ECC-START_ECC]
-    # --- ECC ---
-
-
-    #  ALIGNER L’ORIGINE ANGULAIRE
-    # Détection cycles AVANT réalignement
-
-
-
-    # Remettre l'excentrique dans le même sens temporel (et donc même progression de phase)
-    #if crank_ecc[1] < crank_ecc[0]:
-    #    crank_ecc = crank_ecc[::-1]
-    #    act_ecc = act_ecc[:, ::-1]
-    crank_ecc, q_ecc, act_ecc, frc_ecc, tau_ecc, v_musc_ecc = ensure_forward_rotation(crank_ecc, q_ecc, act_ecc, frc_ecc, tau_ecc, v_musc_ecc)
-
-
-    # Checks
-    assert q_con.shape[1] == crank_con.shape[0]
-    assert q_ecc.shape[1] == crank_ecc.shape[0]
-    assert act_con.shape[1] == crank_con.shape[0]
-    assert act_ecc.shape[1] == crank_ecc.shape[0]
-
-    # Params
-    N_POINTS = 360
-    MIN_CYCLE_FRAMES = 30
-
-    # Compute stats (cycles via crank_angle)
-    stats_con = compute_mode_cycle_stats_crank(
-        q_con, act_con, frc_con, tau_con, v_musc_con, crank_con,
-        min_cycle_frames=MIN_CYCLE_FRAMES,
-        n_points=N_POINTS,
-    )
-    stats_ecc = compute_mode_cycle_stats_crank(
-        q_ecc, act_ecc, frc_ecc, tau_ecc, v_musc_ecc, crank_ecc,
-        min_cycle_frames=MIN_CYCLE_FRAMES,
-        n_points=N_POINTS,
-    )
-
-    print(f"Concentrique: {stats_con['act_cycles'].shape[1]} cycles")
-    print(f"Excentrique : {stats_ecc['act_cycles'].shape[1]} cycles")
-
-    plt.plot(np.rad2deg(stats_con["angle_grid"]), stats_con["act_mean"][30])
-    plt.plot(np.rad2deg(stats_ecc["angle_grid"]), stats_ecc["act_mean"][30])
-    from scipy.signal import correlate
-
-    x = stats_con["q_cycles"][0]
-    y = stats_ecc["q_cycles"][0]
-
-    corr = correlate(y - y.mean(), x - x.mean(), mode='full')
-    shift = np.argmax(corr) - (len(x) - 1)
-    print("Shift (deg):", shift)
-    # Plots : check cycles
-    plot_q_alignment_angle(
-        stats_con["q_cycles"], stats_ecc["q_cycles"],
-        stats_con["angle_grid"],
-        title=f"Vérification alignement cycles (q_ref normalisé sur angle pédalier)"
-    )
-
-    plot_crank_with_starts(crank_con, stats_con["starts"], title=f"Concentrique — crank_angle + starts (N={len(stats_con['starts'])})")
-    plot_crank_with_starts(crank_ecc, stats_ecc["starts"], title=f"Excentrique — crank_angle + starts (N={len(stats_ecc['starts'])})")
-
-    # Activations
-    plot_grid_mean_std_angle(
-        stats_con["act_mean"], stats_con["act_std"],
-        stats_ecc["act_mean"], stats_ecc["act_std"],
-        muscle_names=muscle_names,
-        angle_grid=stats_con["angle_grid"],
-        y_label="Activation",
-        suptitle=f"Activations — Concentrique vs Excentrique (abscisse = angle pédalier) à {PUISSANCE}W",
-        show_mode=True,
-        v_musc_mean_con=stats_con["v_musc_mean"],
-        v_musc_mean_ecc=stats_ecc["v_musc_mean"],
-    )
-
-    # Forces
-    plot_grid_mean_std_angle(
-        stats_con["frc_mean"], stats_con["frc_std"],
-        stats_ecc["frc_mean"], stats_ecc["frc_std"],
-        muscle_names=muscle_names,
-        angle_grid=stats_con["angle_grid"],
-        y_label="Force musculaire (N)",
-        suptitle=f"Forces musculaires — Concentrique vs Excentrique (abscisse = angle pédalier) à {PUISSANCE}W"
-    )
-
-    # Vitesse musculaires
-    plot_grid_mean_std_angle(
-        stats_con["v_musc_mean"], stats_con["v_musc_std"],
-        stats_ecc["v_musc_mean"], stats_ecc["v_musc_std"],
-        muscle_names=muscle_names,
-        angle_grid=stats_con["angle_grid"],
-        y_label="Vitesse musculaire (m/s)",
-        suptitle=f"Vitesses musculaires — Concentrique vs Excentrique (abscisse = angle pédalier) à {PUISSANCE}W"
-    )
+    #
     LAYOUT = {
             "Clavicle": [
                 ("thorax_offset_sternoclavicular_left_r1_RotX", "Pro/retraction"),
@@ -573,25 +444,66 @@ if __name__ == "__main__":
             ],
         }
 
+    means = [stats_all[p]["act_mean"] for p in PUISSANCES]
+    stds = [stats_all[p]["act_std"] for p in PUISSANCES]
+    vlist = [stats_all[p]["v_musc_mean"] for p in PUISSANCES]
+
+    plot_grid_mean_std_angle_multi(
+        means, stds,
+        labels=[f"{p}W" for p in PUISSANCES],
+        colors=["royalblue", "orange", "green"],
+        muscle_names=muscle_names,
+        angle_grid=stats_all[PUISSANCES[0]]["angle_grid"],
+        y_label="Activation",
+        suptitle=f"Activations — {MODE} — comparaison puissances",
+        show_mode=True,
+        v_musc_list=vlist,
+    )
+
+    means = [stats_all[p]["frc_mean"] for p in PUISSANCES]
+    stds = [stats_all[p]["frc_std"] for p in PUISSANCES]
+
+    plot_grid_mean_std_angle_multi(
+        means, stds,
+        labels=[f"{p}W" for p in PUISSANCES],
+        colors=["royalblue", "orange", "green"],
+        muscle_names=muscle_names,
+        angle_grid=stats_all[PUISSANCES[0]]["angle_grid"],
+        y_label="Force musculaire (N)",
+        suptitle=f"Forces — {MODE} — comparaison puissances",
+    )
+
+    means = [stats_all[p]["v_musc_mean"] for p in PUISSANCES]
+    stds = [stats_all[p]["v_musc_std"] for p in PUISSANCES]
+
+    plot_grid_mean_std_angle_multi(
+        means, stds,
+        labels=[f"{p}W" for p in PUISSANCES],
+        colors=["royalblue", "orange", "green"],
+        muscle_names=muscle_names,
+        angle_grid=stats_all[PUISSANCES[0]]["angle_grid"],
+        y_label="Vitesse musculaire (m/s)",
+        suptitle=f"Vitesses — {MODE} — comparaison puissances",
+    )
+
     plot_tau_grid_layout(
         dof_name=dof_name,
-        tau_mean_list=[stats_con["q_mean"], stats_ecc["q_mean"]],
-        tau_std_list=[stats_con["q_std"], stats_ecc["q_std"]],
+        tau_mean_list=[stats_all[p]["q_mean"] for p in PUISSANCES],
+        tau_std_list=[stats_all[p]["q_std"] for p in PUISSANCES],
         layout=LAYOUT,
-        labels=["Concentrique", "Excentrique"],
-        colors=["royalblue", "orange"],
+        labels=[f"{p}W" for p in PUISSANCES],
+        colors=["royalblue", "orange", "green"],
         n_points=N_POINTS,
         ylabel="Joint angle (°)"
     )
 
     plot_tau_grid_layout(
         dof_name=dof_name,
-        tau_mean_list=[stats_con["tau_mean"], stats_ecc["tau_mean"]],
-        tau_std_list=[stats_con["tau_std"], stats_ecc["tau_std"]],
+        tau_mean_list=[stats_all[p]["tau_mean"] for p in PUISSANCES],
+        tau_std_list=[stats_all[p]["tau_std"] for p in PUISSANCES],
         layout=LAYOUT,
-        labels=["Concentrique", "Excentrique"],
-        colors=["royalblue", "orange"],
+        labels=[f"{p}W" for p in PUISSANCES],
+        colors=["royalblue", "orange", "green"],
         n_points=N_POINTS,
         ylabel="Torque (N·m)"
     )
-

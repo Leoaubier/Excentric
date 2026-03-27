@@ -141,7 +141,7 @@ def plot_polar_levels(ax, mean_profiles, muscle_names, angle_grid, title=""):
 
     m, N = mean_profiles.shape
 
-    ax.set_theta_zero_location("E")
+    ax.set_theta_zero_location("N")
     ax.set_theta_direction(1)
     ax.set_yticks([])
     ax.set_ylim(-0.5, m + 1.0)
@@ -185,13 +185,13 @@ if __name__ == "__main__":
     if PUISSANCE == "40":
         START_CON = 2000  # frame de début (ex : 2000)
         END_CON = 5200  # frame de fin
-        START_ECC = 2000  # frame de début (ex : 2000)
-        END_ECC = 5000  # frame de fin
+        START_ECC = 5000  # frame de début (ex : 2000)
+        END_ECC = 8000  # frame de fin
     elif PUISSANCE == "60":
         START_CON = 2000  # frame de début (ex : 2000)
         END_CON = 5000  # frame de fin
-        START_ECC = 1500  # frame de début (ex : 2000)
-        END_ECC = 3500  # frame de fin
+        START_ECC = 14000  # frame de début (ex : 2000)
+        END_ECC = 17000  # frame de fin
     elif PUISSANCE == "80":
         START_CON = 1500  # frame de début (ex : 2000)
         END_CON = 4000  # frame de fin

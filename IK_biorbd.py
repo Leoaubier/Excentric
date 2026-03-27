@@ -9,13 +9,13 @@ from scipy.signal import find_peaks
 try:
     import bioviz
 
-    biorbd_viz_found = True
+    biorbd_viz_found = False
 except ModuleNotFoundError:
     biorbd_viz_found = False
 
 ESSAI = "Collecte_18_03"
-MODE_PEDALAGE = "concentric"
-PUISSANCE = "40"
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "left"
 
 
 # Choix des frames à analyser
@@ -35,7 +35,7 @@ MODEL_MARKERS = [
     "Scap_IA",
     "Delt",
     "EpicI",
-    "EpicM",
+    #"EpicM",
     "ArmI",
     "Elbow",
     "StylU",
@@ -284,7 +284,7 @@ def main(show=True):
     if ESSAI == "Collecte_25_11":
         if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
             if PUISSANCE == "40":
-                init = 4000
+                init = 2000
                 dephasage = 0
             elif PUISSANCE == "60":
                 init = 3000
@@ -317,25 +317,25 @@ def main(show=True):
     elif ESSAI == "Collecte_18_03":
         if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
             if PUISSANCE == "40":
-                init = 2000
+                init = 3000  #2000 bien
                 dephasage = 0
             elif PUISSANCE == "60":
                 init = 3000
                 dephasage = 0
-            elif PUISSANCE == "80":
+            elif PUISSANCE == "left":
                 init = 3000
                 dephasage = 0
             else:
                 print("PB PUISSANCE")
         elif MODE_PEDALAGE == "eccentric":
             if PUISSANCE == "40":
-                init = 5000
-                dephasage = 0
-            elif PUISSANCE == "60":
                 init = 3000
                 dephasage = 0
-            elif PUISSANCE == "80":
-                init = 8000
+            elif PUISSANCE == "60":
+                init = 238
+                dephasage = 0
+            elif PUISSANCE == "left":
+                init = 1100
                 dephasage = 0
             else:
                 print("PB PUISSANCE")
@@ -362,15 +362,37 @@ def main(show=True):
 
     if MODE_PEDALAGE == "concentric": #vérifier les frames d'initialisations
         if PUISSANCE == "40":
-            q_cont[8, :] = (q_cont[8, :] + 2 * pi)  # plot du concentric 40W
-            q_cont[11, :] = (q_cont[11, :] - pi) % (2 * pi)
+            q_cont[8, :] = (q_cont[8, :])  # plot du concentric 40W
+            q_cont[9, :] = (q_cont[9, :])  # plot du concentric 40W
+            q_cont[10, :] = (q_cont[10, :] +2*pi)  # plot du concentric 40W
+            q_cont[11, :] = (q_cont[11, :] + 3*pi)
             q_cont[12, :] = (-q_cont[12, :]) % (2 * pi)
-            q_cont[13, :] = (q_cont[13, :] - pi)
-        elif PUISSANCE == "60":
-            pass
-            #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
+            q_cont[13, :] = (q_cont[13, :] - 5*pi)
+            q_cont[14, :] = (q_cont[14, :] + 2*pi)
+            q_cont[15, :] = (q_cont[15, :] + 2*pi)
 
-        elif PUISSANCE == "80":
+            pass
+
+        elif PUISSANCE == "60":
+            q_cont[8, :] = (q_cont[8, :]-6*pi)  # plot du concentric 40W
+            q_cont[9, :] = (q_cont[9, :]-2*pi)  # plot du concentric 40W
+            q_cont[10, :] = (q_cont[10, :] + 8 * pi)  # plot du concentric 40W
+            q_cont[11, :] = (q_cont[11, :])
+            q_cont[12, :] = (q_cont[12, :])
+            q_cont[13, :] = (q_cont[13, :]-2*pi)
+            q_cont[14, :] = (q_cont[14, :] + 2 * pi)
+            q_cont[15, :] = (q_cont[15, :])
+            pass
+
+        elif PUISSANCE == "left":
+            q_cont[8, :] = (q_cont[8, :] + 3 * pi)  # plot du concentric 40W
+            q_cont[9, :] = -(q_cont[9, :] - pi)  # plot du concentric 40W
+            q_cont[10, :] = (q_cont[10, :] - pi)  # plot du concentric 40W
+            q_cont[11, :] = (q_cont[11, :])
+            q_cont[12, :] = (q_cont[12, :])
+            q_cont[13, :] = (q_cont[13, :] - 2 * pi)
+            q_cont[14, :] = (q_cont[14, :] + 2 * pi)
+            q_cont[15, :] = (q_cont[15, :])
             pass
             #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
 
@@ -378,22 +400,39 @@ def main(show=True):
             print("PB PUISSANCE")
     elif MODE_PEDALAGE == "eccentric":
         if PUISSANCE == "40":
-            q_cont[8, :] = (q_cont[8, :] + 2 * pi)  # plot du concentric 40W
-            q_cont[10, :] = (q_cont[10, :] + 2* pi)
-            q_cont[11, :] = (q_cont[11, :] + pi)
-            q_cont[12, :] = (-q_cont[12, :])
-            q_cont[13, :] = (q_cont[13, :] - pi)
-            q_cont[15, :] = (q_cont[15, :] + pi)
-            q_cont[16, :] = -(q_cont[16, :])-pi
-            q_cont[17, :] = -(q_cont[17, :])+pi
+            q_cont[8, :] = (q_cont[8, :])  # plot du concentric 40W
+            q_cont[10, :] = (q_cont[10, :]+2*pi)
+            q_cont[11, :] = (q_cont[11, :])
+            q_cont[12, :] = (q_cont[12, :])
+            q_cont[13, :] = (q_cont[13, :] -2* pi)
+            q_cont[14, :] = (q_cont[14, :]+2*pi)
+            q_cont[15, :] = (q_cont[15, :] -2* pi)
 
 
 
         elif PUISSANCE == "60":
+            q_cont[7, :] = (q_cont[7, :]+2*pi)  # plot du concentric 40W
+            q_cont[8, :] = (q_cont[8, :]+17*pi)  # plot du concentric 40W
+            q_cont[9, :] = (-q_cont[9, :]-pi)  # plot du concentric 40W
+            q_cont[10, :] = (q_cont[10, :] + 15 * pi)
+            q_cont[11, :] = (q_cont[11, :]+11*pi)
+            q_cont[12, :] = (-q_cont[12, :])
+            q_cont[13, :] = (q_cont[13, :] + 7 * pi)
+            q_cont[14, :] = (q_cont[14, :])
+            q_cont[15, :] = (q_cont[15, :] + 2 * pi)
             pass
             #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
 
-        elif PUISSANCE == "80":
+        elif PUISSANCE == "left":
+            q_cont[7, :] = (q_cont[7, :])  # plot du concentric 40W
+            q_cont[8, :] = (q_cont[8, :]+ pi)  # plot du concentric 40W
+            q_cont[9, :] = (-q_cont[9, :] - pi)  # plot du concentric 40W
+            q_cont[10, :] = (q_cont[10, :] + pi)
+            q_cont[11, :] = (q_cont[11, :] + 5 * pi)
+            q_cont[12, :] = (-q_cont[12, :])
+            q_cont[13, :] = (q_cont[13, :] - 5 * pi)
+            q_cont[14, :] = (q_cont[14, :] + 2 * pi)
+
             pass
             #q_recons[8, :] = (q_recons[8, :] + 2*pi) #plot du concentric 40W
 
@@ -438,7 +477,7 @@ def main(show=True):
     # ===========================
     # 2) Enregistrement des données
     # ===========================
-    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy", q_recons)
+    np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy", q_cont)
     qdot_recons_new = np.gradient(q_recons,1/100, axis=1)
     np.save(f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/qdot_inverse_kinematic.npy", qdot_recons)
     qddot_recons_new = np.gradient(qdot_recons_new, 1/100, axis=1)
@@ -452,8 +491,8 @@ def main(show=True):
     q_clean = np.unwrap(q_clean)
     qdot_clean = np.unwrap(qdot_clean)
 
-    dq = np.diff(q_clean[:,100:4000], axis=1)*100
-    qd = qdot_clean[:, 100:4000-1]
+    dq = np.diff(q_clean[:,100:3000], axis=1)*100
+    qd = qdot_clean[:, 100:3000-1]
 
     def corr(a, b):
         a = a - a.mean(); b = b - b.mean()
@@ -464,8 +503,8 @@ def main(show=True):
     print(c)  # plus de valeurs négatives attendues
     # 4) Extraction & normalisation des cycles
 
-    FIRST_FRAME_PLOT = 2000
-    END_FRAME_PLOT = 5000
+    FIRST_FRAME_PLOT = 1200
+    END_FRAME_PLOT = 3200
 
     dof_name = list(model.dof_names)
 

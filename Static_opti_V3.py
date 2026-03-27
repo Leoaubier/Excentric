@@ -8,8 +8,8 @@ from scipy.signal import find_peaks
 import warnings
 
 ESSAI = "Collecte_18_03"
-MODE_PEDALAGE = "concentric"
-PUISSANCE = "40"
+MODE_PEDALAGE = "eccentric"
+PUISSANCE = "left"
 
 MODEL_PATH = f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod"
 
@@ -37,7 +37,7 @@ if ESSAI == "Collecte_25_11":
             END = 5000  # frame de fin
         elif PUISSANCE == "80":
             FIRST = 1500  # frame de début (ex : 2000)
-            END = 4000  # frame de fin
+            END = 1600  # frame de fin 4000
         else:
             print("PB PUISSANCE")
 
@@ -67,9 +67,9 @@ elif ESSAI == "Collecte_18_03":
     W_ACT = 2.5e8
     SAT = 0
     RES_BND_know = 2
-    RES_BND_unknow = 3.5
-    FIRST = 2000  # frame de début (ex : 2000) OK
-    END = 2300  # frame de fin
+    RES_BND_unknow = 7
+    FIRST = 4000  # frame de début (ex : 2000) OK
+    END = 7000  # frame de fin
 
 
 else:
@@ -85,9 +85,9 @@ DELAY = 30 # en ms (EMG en avance sur activation) : facteur 10
 active_dof = [6,7,8,9,10,11,12,13,14]
 
 emg_to_muscle = {
-    0: "DeltoideusClavicle",
+    #0: "DeltoideusClavicle",
     1: "DeltoideusScapula_M",
-    2: "DeltoideusScapula_P",
+    #2: "DeltoideusScapula_P",
     3: "TrapeziusScapula_S",
     4: "TRI",
     5: "BIC",

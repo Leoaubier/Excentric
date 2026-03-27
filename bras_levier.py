@@ -11,13 +11,13 @@ PLOT = False
 
 ESSAI = "Collecte_18_03"
 MODE_PEDALAGE = "concentric"
-PUISSANCE = "40"
+PUISSANCE = "60"
 
 MODEL_PATH = f"/Users/leo/Desktop/Projet/{ESSAI}/model_{ESSAI}.bioMod"
 Q_PATH     = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/q_inverse_kinematic.npy"
 
-FIRST_FRAME = 2000
-LAST_FRAME  = 3400                     # None = jusqu'à la fin
+FIRST_FRAME = 2100
+LAST_FRAME  = 2200                     # None = jusqu'à la fin
 
 OUT_CSV = f"/Users/leo/Desktop/Projet/{ESSAI}/{MODE_PEDALAGE}_{PUISSANCE}W/moment_arms_by_dof.csv"                         # ex: "moment_arms_by_dof.csv" ou None
 # ============================================================

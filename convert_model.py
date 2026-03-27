@@ -2,8 +2,8 @@
 
 from biobuddy import BiomechanicalModelReal
 
-scaled_osim_path = "/Users/leo/Desktop/Projet/Collecte_18_03/model_Collecte_18_03_V2.osim"
-scaled_biomod_path = ("/Users/leo/Desktop/Projet/Collecte_18_03/model_Collecte_18_03.bioMod")
+scaled_osim_path = "/Users/leo/Desktop/Projet/Collecte_18_03/model_Collecte_18_03_V3_Sid2.osim"
+scaled_biomod_path = ("/Users/leo/Desktop/Projet/Collecte_18_03/model_Collecte_18_03_V2.bioMod")
 
 model = BiomechanicalModelReal().from_osim(scaled_osim_path)
 model.to_biomod(scaled_biomod_path)
